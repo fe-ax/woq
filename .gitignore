@@ -1,0 +1,11 @@
+# Xcode / XcodeGen
+WOQ.xcodeproj/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+# macOS
+.DS_Store
+# Scratch
+*.log
