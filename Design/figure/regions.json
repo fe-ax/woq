@@ -1,0 +1,268 @@
+[
+  {
+    "id": "front.traps-upper.r",
+    "group": "traps-upper",
+    "displayName": "Upper traps",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.traps-upper.l",
+    "group": "traps-upper",
+    "displayName": "Upper traps",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.deltoid-front.r",
+    "group": "deltoid-front",
+    "displayName": "Front delts",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.deltoid-front.l",
+    "group": "deltoid-front",
+    "displayName": "Front delts",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.chest.r",
+    "group": "chest",
+    "displayName": "Chest",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.chest.l",
+    "group": "chest",
+    "displayName": "Chest",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.biceps.r",
+    "group": "biceps",
+    "displayName": "Biceps",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.biceps.l",
+    "group": "biceps",
+    "displayName": "Biceps",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.forearm-front.r",
+    "group": "forearm-front",
+    "displayName": "Forearms (front)",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.forearm-front.l",
+    "group": "forearm-front",
+    "displayName": "Forearms (front)",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.obliques.r",
+    "group": "obliques",
+    "displayName": "Obliques",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.obliques.l",
+    "group": "obliques",
+    "displayName": "Obliques",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.adductors.r",
+    "group": "adductors",
+    "displayName": "Adductors",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.adductors.l",
+    "group": "adductors",
+    "displayName": "Adductors",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.quads.r",
+    "group": "quads",
+    "displayName": "Quads",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.quads.l",
+    "group": "quads",
+    "displayName": "Quads",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.tibialis.r",
+    "group": "tibialis",
+    "displayName": "Tibialis",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.tibialis.l",
+    "group": "tibialis",
+    "displayName": "Tibialis",
+    "view": "front",
+    "side": "l"
+  },
+  {
+    "id": "front.abs",
+    "group": "abs",
+    "displayName": "Abs",
+    "view": "front",
+    "side": null
+  },
+  {
+    "id": "back.traps.l",
+    "group": "traps",
+    "displayName": "Traps",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.traps.r",
+    "group": "traps",
+    "displayName": "Traps",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.deltoid-rear.l",
+    "group": "deltoid-rear",
+    "displayName": "Rear delts",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.deltoid-rear.r",
+    "group": "deltoid-rear",
+    "displayName": "Rear delts",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.rhomboids-upper-back.l",
+    "group": "rhomboids-upper-back",
+    "displayName": "Rhomboids / upper back",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.rhomboids-upper-back.r",
+    "group": "rhomboids-upper-back",
+    "displayName": "Rhomboids / upper back",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.lats.l",
+    "group": "lats",
+    "displayName": "Lats",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.lats.r",
+    "group": "lats",
+    "displayName": "Lats",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.triceps.l",
+    "group": "triceps",
+    "displayName": "Triceps",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.triceps.r",
+    "group": "triceps",
+    "displayName": "Triceps",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.forearm-back.l",
+    "group": "forearm-back",
+    "displayName": "Forearms (back)",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.forearm-back.r",
+    "group": "forearm-back",
+    "displayName": "Forearms (back)",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.glutes.l",
+    "group": "glutes",
+    "displayName": "Glutes",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.glutes.r",
+    "group": "glutes",
+    "displayName": "Glutes",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.hamstrings.l",
+    "group": "hamstrings",
+    "displayName": "Hamstrings",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.hamstrings.r",
+    "group": "hamstrings",
+    "displayName": "Hamstrings",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.calves.l",
+    "group": "calves",
+    "displayName": "Calves",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.calves.r",
+    "group": "calves",
+    "displayName": "Calves",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.lower-back",
+    "group": "lower-back",
+    "displayName": "Lower back",
+    "view": "back",
+    "side": null
+  }
+]
