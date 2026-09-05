@@ -20,6 +20,12 @@ struct MainScreen: View {
     @State private var showAddSheet = false
     @State private var detailExercise: Exercise?
 
+    /// Muscle filter (PLAN.md section 2, "Search"). View state only: never
+    /// persisted, and it never touches the store, so opening the panel or
+    /// changing the selection cannot disturb an in-progress draft.
+    @State private var selectedMuscles: Set<Muscle> = []
+    @State private var showMusclePanel = false
+
     /// The in-progress draft. View state only, reset whenever the in-progress
     /// exercise changes and never persisted (PLAN.md 3.4).
     @State private var draft = SetDraft()
@@ -59,9 +65,25 @@ struct MainScreen: View {
                     .padding(.top, 4)
                     .padding(.bottom, 12)
 
-                SearchField(text: $searchText)
+                SearchField(
+                    text: $searchText,
+                    isFilterActive: !selectedMuscles.isEmpty,
+                    filterCount: selectedMuscles.count
+                ) {
+                    withAnimation(.snappy) { showMusclePanel.toggle() }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+                if showMusclePanel {
+                    MuscleFilterPanel(
+                        selection: $selectedMuscles,
+                        isPresented: $showMusclePanel
+                    )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 queueScroll
             }
@@ -230,12 +252,12 @@ struct MainScreen: View {
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
             .padding(.top, 120)
-        } else if queued.isEmpty && !query.isEmpty {
+        } else if queued.isEmpty && isFiltering {
             VStack(spacing: 6) {
                 Text(String(localized: "No matches"))
                     .font(.title3)
                     .foregroundStyle(Tokens.ink)
-                Text(String(localized: "Nothing matches \"\(query)\""))
+                Text(noMatchesDetail)
                     .font(.subheadline)
                     .foregroundStyle(Tokens.muted)
             }
@@ -260,16 +282,45 @@ struct MainScreen: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var isFiltering: Bool {
+        !query.isEmpty || !selectedMuscles.isEmpty
+    }
+
     /// The queue section: everything except the in-progress exercise, filtered
     /// in memory. Search never hides the in-progress card and never reorders
     /// (PLAN.md 3.11 and pitfall 20).
+    ///
+    /// Text and muscles are ANDed; within the muscle filter the rule is ANY
+    /// (an exercise matches when it tags at least one selected muscle, at any
+    /// intensity).
     private var queued: [Exercise] {
         let inProgressID = inProgress?.id
-        let base = ordered.filter { $0.id != inProgressID }
-        guard !query.isEmpty else { return base }
-        return base.filter {
-            $0.nameKey.localizedStandardContains(query)
-                || $0.muscleSearchText.localizedStandardContains(query)
+        var base = ordered.filter { $0.id != inProgressID }
+
+        if !query.isEmpty {
+            base = base.filter {
+                $0.nameKey.localizedStandardContains(query)
+                    || $0.muscleSearchText.localizedStandardContains(query)
+            }
+        }
+
+        if !selectedMuscles.isEmpty {
+            base = base.filter { exercise in
+                exercise.muscleTags.contains { selectedMuscles.contains($0.muscle) }
+            }
+        }
+
+        return base
+    }
+
+    private var noMatchesDetail: String {
+        switch (query.isEmpty, selectedMuscles.isEmpty) {
+        case (false, false):
+            String(localized: "Nothing matches \"\(query)\" in the selected muscles")
+        case (false, true):
+            String(localized: "Nothing matches \"\(query)\"")
+        default:
+            String(localized: "Nothing matches the selected muscles")
         }
     }
 

@@ -10,6 +10,9 @@ nonisolated struct FigurePalette: Sendable {
     var primary: Color
     var secondary: Color
     var stabiliser: Color
+    /// Fill for a muscle in `FigureView.selection` (the filter picker). Same
+    /// value as `Tokens.blue`; it wins over any intensity fill.
+    var selected: Color = hex(0xA8C8F0)
 
     static let `default` = FigurePalette(
         card: hex(0xFFFDF8),
@@ -93,20 +96,56 @@ nonisolated enum FigureSize: Sendable, CaseIterable {
 // MARK: - Figure
 
 /// One stylised human figure (front or back) with the tagged muscles filled.
+///
+/// Two independent layers of colour: `tags` paint intensity colours (an
+/// exercise) and `selection` paints `palette.selected` (the muscle filter).
+/// Selection wins where both apply.
+///
+/// When `onTapMuscle` is set the figure becomes a picker: taps are hit-tested
+/// against the muscle regions with the inverse of `fitTransform`, and taps on
+/// the body, the outline or empty canvas are ignored. Without the callback no
+/// gesture is attached at all, so a figure inside a tappable row (ExerciseRow)
+/// keeps letting the row's own tap through.
 struct FigureView: View {
     var side: FigureSide
     var tags: [MuscleTag]
     var size: FigureSize
     var palette: FigurePalette = .default
+    /// Muscles drawn in the selection colour, on top of any intensity fill.
+    var selection: Set<Muscle> = []
+    /// Set to make the figure tappable; called with the muscle that was hit.
+    var onTapMuscle: ((Muscle) -> Void)?
+
+    /// Last laid-out canvas size, needed to invert the fit transform for taps.
+    /// Only tracked when the figure is tappable.
+    @State private var canvasSize: CGSize = .zero
 
     var body: some View {
-        Canvas(opaque: false, rendersAsynchronously: false) { context, canvasSize in
+        let figure = Canvas(opaque: false, rendersAsynchronously: false) { context, canvasSize in
             draw(in: &context, canvasSize: canvasSize)
         }
         .frame(width: size.fixedSize?.width, height: size.fixedSize?.height)
         .aspectRatio(FigurePaths.viewBox.width / FigurePaths.viewBox.height, contentMode: .fit)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Self.accessibilityLabel(side: side, tags: tags))
+
+        if let onTapMuscle {
+            figure
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
+                .contentShape(Rectangle())
+                .onTapGesture { location in
+                    guard
+                        let muscle = Self.muscle(
+                            at: location,
+                            canvasSize: canvasSize,
+                            side: side
+                        )
+                    else { return }
+                    onTapMuscle(muscle)
+                }
+        } else {
+            figure
+        }
     }
 
     // MARK: Drawing
@@ -115,6 +154,7 @@ struct FigureView: View {
         let regions = FigurePaths.regions(for: side)
         let transform = Self.fitTransform(FigurePaths.viewBox, into: canvasSize)
         let intensities = Self.intensities(for: tags, side: side)
+        let selected = Self.selected(from: selection, side: side)
 
         // The outline doubles as the body shape: fill it first, stroke it last.
         for region in regions where region.kind == .outline {
@@ -137,7 +177,9 @@ struct FigureView: View {
             case .muscle(let muscle):
                 fill(
                     region,
-                    with: palette.fill(for: intensities[muscle]),
+                    with: selected.contains(muscle)
+                        ? palette.selected
+                        : palette.fill(for: intensities[muscle]),
                     transform: transform,
                     in: &context
                 )
@@ -179,6 +221,40 @@ struct FigureView: View {
         return CGAffineTransform(translationX: dx, y: dy).scaledBy(x: scale, y: scale)
     }
 
+    /// The muscle drawn at `point` in a canvas of `canvasSize`, or `nil` for
+    /// the body, the outline, the decoration and the empty margins of the
+    /// aspect-fit box.
+    ///
+    /// Inverts `fitTransform` and tests the untransformed region paths, so the
+    /// hit area is exactly the shape that was painted. `deltoidSide` has no
+    /// region of its own, so tapping a delt always yields the region's own
+    /// muscle (`deltoidFront` on the front figure, `deltoidRear` on the back);
+    /// side delts are only reachable through the intensity chips elsewhere.
+    static func muscle(at point: CGPoint, canvasSize: CGSize, side: FigureSide) -> Muscle? {
+        let transform = fitTransform(FigurePaths.viewBox, into: canvasSize)
+        let determinant = transform.a * transform.d - transform.b * transform.c
+        guard abs(determinant) > .ulpOfOne else { return nil }
+        let local = point.applying(transform.inverted())
+
+        // The generator validates that muscle regions do not overlap, so the
+        // first containing region is also the one on top.
+        for region in FigurePaths.regions(for: side) {
+            guard let muscle = region.muscle else { continue }
+            if region.path.contains(local) { return muscle }
+        }
+        return nil
+    }
+
+    /// The muscles to paint in the selection colour, with `deltoidSide` folded
+    /// onto the delts that this side actually draws (same rule as
+    /// `intensities(for:side:)`).
+    static func selected(from selection: Set<Muscle>, side: FigureSide) -> Set<Muscle> {
+        guard selection.contains(.deltoidSide) else { return selection }
+        var result = selection
+        result.insert(side == .front ? .deltoidFront : .deltoidRear)
+        return result
+    }
+
     /// Highest intensity per muscle, with `deltoidSide` folded onto the front
     /// delts (front view) or the rear delts (back view) unless those are
     /// already tagged with a higher intensity.
@@ -211,15 +287,34 @@ struct FigureView: View {
 // MARK: - Pair
 
 /// Front and back figure side by side.
+///
+/// Each `FigureView` hit-tests its own taps, so `onTapMuscle` needs no
+/// knowledge of which half was hit.
 struct FigurePairView: View {
     var tags: [MuscleTag]
     var size: FigureSize
     var palette: FigurePalette = .default
+    var selection: Set<Muscle> = []
+    var onTapMuscle: ((Muscle) -> Void)?
 
     var body: some View {
         HStack(spacing: size.pairSpacing) {
-            FigureView(side: .front, tags: tags, size: size, palette: palette)
-            FigureView(side: .back, tags: tags, size: size, palette: palette)
+            FigureView(
+                side: .front,
+                tags: tags,
+                size: size,
+                palette: palette,
+                selection: selection,
+                onTapMuscle: onTapMuscle
+            )
+            FigureView(
+                side: .back,
+                tags: tags,
+                size: size,
+                palette: palette,
+                selection: selection,
+                onTapMuscle: onTapMuscle
+            )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
