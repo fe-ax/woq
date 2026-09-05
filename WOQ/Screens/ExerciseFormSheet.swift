@@ -23,6 +23,9 @@ struct ExerciseFormSheet: View {
 
     var mode: Mode
     var onAdded: ((AddResult) -> Void)? = nil
+    /// Add mode only: called once after the preset list added `count` exercises to the
+    /// queue (never performed, nothing started). MainScreen shows a hint with the count.
+    var onAddedPresets: ((Int) -> Void)? = nil
 
     @Environment(QueueStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -338,35 +341,7 @@ struct ExerciseFormSheet: View {
 
 // MARK: - Shared sheet chrome
 
-/// Header row of every sheet: title left, action buttons right. Replaces the
-/// navigation bar, which stays hidden so iOS 26 cannot put glass on it
-/// (PLAN.md pitfall 7 and 29).
-struct SheetHeaderBar<Trailing: View>: View {
-    var title: String
-    @ViewBuilder var trailing: Trailing
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(title)
-                .font(Tokens.titleFont)
-                .foregroundStyle(Tokens.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.6)
-
-            Spacer(minLength: 8)
-
-            // The buttons keep their intrinsic width at every Dynamic Type
-            // size — without this "Cancel" hyphenates onto two lines at XXXL.
-            // The title shrinks instead.
-            HStack(spacing: 8) { trailing }
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-    }
-}
+// `SheetHeaderBar` lives in Design/Components/SheetHeaderBar.swift.
 
 /// Inline hints for an invalid set field, shared by the form sheet and the entry
 /// editor. Every string goes through `String(localized:)` (PLAN.md pitfall 22).
