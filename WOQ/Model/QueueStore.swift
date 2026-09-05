@@ -1,0 +1,249 @@
+import Foundation
+import SwiftData
+import os
+
+/// The single owner of every `Exercise` / `Entry` mutation (PLAN.md 3.2 and pitfalls 1, 2, 11).
+///
+/// Views read models through `@Query` and call into the store to change anything. Nothing
+/// else may write `lastPerformedAt` or `inProgressSince`, and nothing else keeps the
+/// denormalised `nameKey` / `muscleSearchText` in sync — that happens through
+/// `Exercise.setName(_:)` / `Exercise.setTags(_:)`, called from here only.
+///
+/// Everything stays on the main actor with the container's `mainContext`
+/// (PLAN.md pitfall 13 and 25): no `Task.detached`, no background context, no `@ModelActor`.
+@Observable @MainActor final class QueueStore {
+
+    @ObservationIgnored let modelContext: ModelContext
+
+    @ObservationIgnored
+    private let logger = Logger(subsystem: "nl.feax.woq", category: "store")
+
+    /// Set when a save fails, so the UI can show something instead of losing data silently.
+    var lastError: String?
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    // MARK: - Ordering
+
+    /// Queue order (PLAN.md 3.1 and pitfall 30): `lastPerformedAt` forward puts nil FIRST
+    /// (verified on SQLite and in memory, docs/swiftui-swiftdata.md 1d), so a never
+    /// performed exercise counts as "longest ago". Ties break on `createdAt`, then `name`.
+    static let sortDescriptors: [SortDescriptor<Exercise>] = [
+        SortDescriptor(\Exercise.lastPerformedAt, order: .forward),
+        SortDescriptor(\Exercise.createdAt, order: .forward),
+        SortDescriptor(\Exercise.name, order: .forward),
+    ]
+
+    /// The same rule applied in memory. Safety net for views that already hold an array
+    /// (and for any future fetch that forgets the descriptors).
+    static func ordered(_ exercises: [Exercise]) -> [Exercise] {
+        exercises.sorted { lhs, rhs in
+            switch (lhs.lastPerformedAt, rhs.lastPerformedAt) {
+            case let (left?, right?) where left != right:
+                return left < right
+            case (nil, .some):
+                return true
+            case (.some, nil):
+                return false
+            default:
+                break
+            }
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    // MARK: - In progress
+
+    /// The in-progress exercise inside a list the view already has (PLAN.md 5).
+    func inProgressExercise(in exercises: [Exercise]) -> Exercise? {
+        exercises.first { $0.inProgressSince != nil }
+    }
+
+    /// The in-progress exercise fetched from the store, for callers without a list.
+    func inProgressExercise() -> Exercise? {
+        var descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate<Exercise> { $0.inProgressSince != nil },
+            sortBy: [SortDescriptor(\Exercise.inProgressSince, order: .forward)]
+        )
+        descriptor.fetchLimit = 1
+        return fetch(descriptor).first
+    }
+
+    nonisolated enum StartResult: Equatable {
+        case started
+        /// Another exercise is already in progress; nothing changed (PLAN.md 3.3).
+        case refused(current: Exercise)
+    }
+
+    /// Starts an exercise. Exactly one exercise may be in progress; starting the one that
+    /// already is, is a no-op `.started`.
+    @discardableResult
+    func start(_ exercise: Exercise) -> StartResult {
+        if let current = inProgressExercise(), current !== exercise {
+            return .refused(current: current)
+        }
+        if exercise.inProgressSince == nil {
+            exercise.inProgressSince = .now
+            save()
+        }
+        return .started
+    }
+
+    /// Put back: the exercise returns to its sorted queue position, drafts are discarded
+    /// by the view (PLAN.md 3.6).
+    func putBack(_ exercise: Exercise) {
+        guard exercise.inProgressSince != nil else { return }
+        exercise.inProgressSince = nil
+        save()
+    }
+
+    /// Finalize (PLAN.md 3.5): insert the entry, stamp `lastPerformedAt`, clear the
+    /// in-progress marker. The exercise sorts to the bottom of the queue afterwards.
+    @discardableResult
+    func finalize(_ exercise: Exercise, with set: ValidatedSet, at date: Date = .now) -> Entry {
+        let entry = Entry(
+            date: date,
+            weightHalfKilos: set.weightHalfKilos,
+            reps: set.reps,
+            repsRight: set.repsRight
+        )
+        modelContext.insert(entry)
+        entry.exercise = exercise
+        exercise.lastPerformedAt = date
+        exercise.inProgressSince = nil
+        save()
+        return entry
+    }
+
+    // MARK: - Exercises
+
+    nonisolated enum FirstSetOutcome: Equatable {
+        /// The first set validated: an entry was written straight away.
+        case logged
+        /// Nothing valid was typed and nothing was in progress: the new exercise started.
+        case startedInProgress
+        /// Something else is in progress: the new exercise waits in the queue.
+        case queued
+    }
+
+    /// New exercise (PLAN.md section 2 "New exercise" and 3.3).
+    ///
+    /// A valid first set is logged immediately. Otherwise, when nothing is in progress the
+    /// new exercise becomes the in-progress one — also when the draft is partially filled,
+    /// because the UI carries the typed values into the in-progress card. When another
+    /// exercise is in progress the new one is simply queued (never performed = top).
+    func addExercise(
+        name: String,
+        isUnilateral: Bool,
+        tags: [MuscleTag],
+        firstSet: SetDraft?
+    ) -> (Exercise, FirstSetOutcome) {
+        let exercise = Exercise(name: name, isUnilateral: isUnilateral, tags: tags)
+        modelContext.insert(exercise)
+
+        if let firstSet, case .success(let set) = firstSet.validate(isUnilateral: isUnilateral) {
+            finalize(exercise, with: set)
+            return (exercise, .logged)
+        }
+
+        if inProgressExercise() == nil {
+            start(exercise)
+            return (exercise, .startedInProgress)
+        }
+
+        save()
+        return (exercise, .queued)
+    }
+
+    /// Edit an exercise. Flipping `isUnilateral` leaves existing entries untouched: their
+    /// `repsRight` stays as recorded, so old sets keep reading the way they were logged.
+    func updateExercise(
+        _ exercise: Exercise,
+        name: String,
+        isUnilateral: Bool,
+        tags: [MuscleTag]
+    ) {
+        exercise.setName(name)
+        exercise.isUnilateral = isUnilateral
+        exercise.setTags(tags)
+        save()
+    }
+
+    /// Delete an exercise; the cascade rule deletes its entries (PLAN.md 3.9).
+    func deleteExercise(_ exercise: Exercise) {
+        modelContext.delete(exercise)
+        save()
+    }
+
+    // MARK: - Entries
+
+    /// Delete one entry and recompute the owner's `lastPerformedAt` as the max remaining
+    /// entry date — nil when none is left (PLAN.md 3.8 and pitfall 11).
+    func deleteEntry(_ entry: Entry) {
+        let owner = entry.exercise
+        entry.exercise = nil
+        modelContext.delete(entry)
+        if let owner {
+            let remaining = owner.entries.filter { $0 !== entry }
+            owner.lastPerformedAt = remaining.map(\.date).max()
+        }
+        save()
+    }
+
+    /// Edit one entry (weight and reps only; the date is fixed, PLAN.md section 2 "Detail")
+    /// and recompute the owner's `lastPerformedAt`.
+    func updateEntry(_ entry: Entry, weightHalfKilos: Int?, reps: Int, repsRight: Int?) {
+        entry.weightHalfKilos = weightHalfKilos
+        entry.reps = reps
+        entry.repsRight = repsRight
+        if let owner = entry.exercise {
+            owner.lastPerformedAt = owner.entries.map(\.date).max()
+        }
+        save()
+    }
+
+    // MARK: - Names
+
+    /// Lowercased, whitespace-trimmed duplicate key (PLAN.md pitfall 10).
+    static func nameKey(for name: String) -> String {
+        Exercise.nameKey(for: name)
+    }
+
+    /// True when no other exercise already uses this name, case- and whitespace-insensitively.
+    /// An empty name is never available, so Save stays disabled for it.
+    func isNameAvailable(_ name: String, excluding: Exercise? = nil) -> Bool {
+        let key = Self.nameKey(for: name)
+        guard !key.isEmpty else { return false }
+        let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate<Exercise> { $0.nameKey == key })
+        return !fetch(descriptor).contains { $0 !== excluding }
+    }
+
+    // MARK: - Persistence
+
+    /// Every mutating method ends here. Failures are logged and surfaced through `lastError`
+    /// instead of crashing.
+    func save() {
+        do {
+            try modelContext.save()
+            if lastError != nil { lastError = nil }
+        } catch {
+            logger.error("save failed: \(error.localizedDescription, privacy: .public)")
+            lastError = error.localizedDescription
+        }
+    }
+
+    /// Never `try!` a predicate fetch: unsupported predicates only fail at fetch time
+    /// (PLAN.md pitfall 28).
+    private func fetch(_ descriptor: FetchDescriptor<Exercise>) -> [Exercise] {
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            logger.error("fetch failed: \(error.localizedDescription, privacy: .public)")
+            lastError = error.localizedDescription
+            return []
+        }
+    }
+}
