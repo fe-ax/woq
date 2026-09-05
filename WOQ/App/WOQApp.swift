@@ -15,11 +15,29 @@ struct WOQApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainScreen()
+            rootView
                 .preferredColorScheme(.light)
                 .modelContainer(container)
                 .environment(store)
         }
+    }
+
+    /// DEBUG: `xcrun simctl launch <sim> nl.feax.woq --gallery` opens the component gallery instead of the app.
+    @ViewBuilder
+    private var rootView: some View {
+        #if DEBUG
+        if CommandLine.arguments.contains("--gallery") {
+            ComponentGallery()
+        } else if let index = CommandLine.arguments.firstIndex(of: "--preview"),
+                  index + 1 < CommandLine.arguments.count {
+            // `--preview add|edit|detail|entry` shows one sheet's content as the root (see DebugPreviews.swift).
+            DebugPreviewRoot(name: CommandLine.arguments[index + 1])
+        } else {
+            MainScreen()
+        }
+        #else
+        MainScreen()
+        #endif
     }
 
     // MARK: - Container
