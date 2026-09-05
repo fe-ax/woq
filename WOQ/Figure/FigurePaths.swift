@@ -20,6 +20,8 @@ nonisolated enum FigurePaths {
         frontTrapsUpperL,
         frontDeltoidFrontR,
         frontDeltoidFrontL,
+        frontDeltoidSideR,
+        frontDeltoidSideL,
         frontChestR,
         frontChestL,
         frontBicepsR,
@@ -42,6 +44,8 @@ nonisolated enum FigurePaths {
         backTrapsR,
         backDeltoidRearL,
         backDeltoidRearR,
+        backDeltoidSideL,
+        backDeltoidSideR,
         backRhomboidsUpperBackL,
         backRhomboidsUpperBackR,
         backLatsL,
@@ -149,19 +153,19 @@ private nonisolated extension FigurePaths {
         side: .front,
         kind: .muscle(.deltoidFront),
         path: Path { p in
-            p.move(to: CGPoint(x: 33.4, y: 51.7))
-            p.addCurve(to: CGPoint(x: 31.8, y: 53.2), control1: CGPoint(x: 32.6, y: 52), control2: CGPoint(x: 32.3, y: 52.6))
-            p.addCurve(to: CGPoint(x: 30.5, y: 55.2), control1: CGPoint(x: 31.4, y: 53.8), control2: CGPoint(x: 30.9, y: 54.5))
-            p.addCurve(to: CGPoint(x: 29.6, y: 57.4), control1: CGPoint(x: 30.1, y: 55.9), control2: CGPoint(x: 29.8, y: 56.6))
-            p.addCurve(to: CGPoint(x: 29.1, y: 60.2), control1: CGPoint(x: 29.4, y: 58.3), control2: CGPoint(x: 29.3, y: 58.9))
-            p.addCurve(to: CGPoint(x: 28.7, y: 65), control1: CGPoint(x: 29, y: 61.5), control2: CGPoint(x: 28.1, y: 63.7))
-            p.addCurve(to: CGPoint(x: 32.5, y: 68), control1: CGPoint(x: 29.3, y: 66.3), control2: CGPoint(x: 31.2, y: 67.7))
-            p.addCurve(to: CGPoint(x: 36.5, y: 67), control1: CGPoint(x: 33.8, y: 68.3), control2: CGPoint(x: 35.3, y: 67.9))
-            p.addCurve(to: CGPoint(x: 39.5, y: 62.5), control1: CGPoint(x: 37.7, y: 66.1), control2: CGPoint(x: 38.9, y: 64.2))
+            p.move(to: CGPoint(x: 35.8, y: 52.3))
+            p.addCurve(to: CGPoint(x: 35.2, y: 54.5), control1: CGPoint(x: 35.6, y: 52.8), control2: CGPoint(x: 35.3, y: 53.7))
+            p.addCurve(to: CGPoint(x: 34.9, y: 57), control1: CGPoint(x: 35.1, y: 55.3), control2: CGPoint(x: 35, y: 56.2))
+            p.addCurve(to: CGPoint(x: 34.7, y: 59.5), control1: CGPoint(x: 34.8, y: 57.8), control2: CGPoint(x: 34.8, y: 58.7))
+            p.addCurve(to: CGPoint(x: 34.4, y: 62), control1: CGPoint(x: 34.6, y: 60.3), control2: CGPoint(x: 34.5, y: 61.2))
+            p.addCurve(to: CGPoint(x: 34.1, y: 64.4), control1: CGPoint(x: 34.3, y: 62.8), control2: CGPoint(x: 34, y: 63.7))
+            p.addCurve(to: CGPoint(x: 34.7, y: 66.4), control1: CGPoint(x: 34.1, y: 65.1), control2: CGPoint(x: 34.3, y: 66))
+            p.addCurve(to: CGPoint(x: 36.5, y: 67), control1: CGPoint(x: 35.1, y: 66.8), control2: CGPoint(x: 35.7, y: 67.7))
+            p.addCurve(to: CGPoint(x: 39.5, y: 62.5), control1: CGPoint(x: 37.3, y: 66.3), control2: CGPoint(x: 38.9, y: 64.2))
             p.addCurve(to: CGPoint(x: 40.2, y: 57), control1: CGPoint(x: 40.1, y: 60.8), control2: CGPoint(x: 40.2, y: 58.6))
             p.addCurve(to: CGPoint(x: 39.2, y: 53), control1: CGPoint(x: 40.2, y: 55.4), control2: CGPoint(x: 39.8, y: 53.9))
-            p.addCurve(to: CGPoint(x: 36.5, y: 51.4), control1: CGPoint(x: 38.6, y: 52.1), control2: CGPoint(x: 37.5, y: 51.6))
-            p.addCurve(to: CGPoint(x: 33.4, y: 51.7), control1: CGPoint(x: 35.5, y: 51.2), control2: CGPoint(x: 34.2, y: 51.4))
+            p.addCurve(to: CGPoint(x: 36.5, y: 51.4), control1: CGPoint(x: 38.6, y: 52.1), control2: CGPoint(x: 37.1, y: 51.5))
+            p.addCurve(to: CGPoint(x: 35.8, y: 52.3), control1: CGPoint(x: 35.9, y: 51.3), control2: CGPoint(x: 36, y: 51.8))
             p.closeSubpath()
         }
     )
@@ -171,19 +175,67 @@ private nonisolated extension FigurePaths {
         side: .front,
         kind: .muscle(.deltoidFront),
         path: Path { p in
+            p.move(to: CGPoint(x: 84.2, y: 52.3))
+            p.addCurve(to: CGPoint(x: 84.8, y: 54.5), control1: CGPoint(x: 84.4, y: 52.8), control2: CGPoint(x: 84.7, y: 53.7))
+            p.addCurve(to: CGPoint(x: 85.1, y: 57), control1: CGPoint(x: 84.9, y: 55.3), control2: CGPoint(x: 85, y: 56.2))
+            p.addCurve(to: CGPoint(x: 85.3, y: 59.5), control1: CGPoint(x: 85.2, y: 57.8), control2: CGPoint(x: 85.2, y: 58.7))
+            p.addCurve(to: CGPoint(x: 85.6, y: 62), control1: CGPoint(x: 85.4, y: 60.3), control2: CGPoint(x: 85.5, y: 61.2))
+            p.addCurve(to: CGPoint(x: 85.9, y: 64.4), control1: CGPoint(x: 85.7, y: 62.8), control2: CGPoint(x: 86, y: 63.7))
+            p.addCurve(to: CGPoint(x: 85.3, y: 66.4), control1: CGPoint(x: 85.9, y: 65.1), control2: CGPoint(x: 85.7, y: 66))
+            p.addCurve(to: CGPoint(x: 83.5, y: 67), control1: CGPoint(x: 84.9, y: 66.8), control2: CGPoint(x: 84.3, y: 67.7))
+            p.addCurve(to: CGPoint(x: 80.5, y: 62.5), control1: CGPoint(x: 82.7, y: 66.3), control2: CGPoint(x: 81.1, y: 64.2))
+            p.addCurve(to: CGPoint(x: 79.8, y: 57), control1: CGPoint(x: 79.9, y: 60.8), control2: CGPoint(x: 79.8, y: 58.6))
+            p.addCurve(to: CGPoint(x: 80.8, y: 53), control1: CGPoint(x: 79.8, y: 55.4), control2: CGPoint(x: 80.2, y: 53.9))
+            p.addCurve(to: CGPoint(x: 83.5, y: 51.4), control1: CGPoint(x: 81.4, y: 52.1), control2: CGPoint(x: 82.9, y: 51.5))
+            p.addCurve(to: CGPoint(x: 84.2, y: 52.3), control1: CGPoint(x: 84.1, y: 51.3), control2: CGPoint(x: 84, y: 51.8))
+            p.closeSubpath()
+        }
+    )
+
+    static let frontDeltoidSideR = FigureRegion(
+        id: "front.deltoid-side.r",
+        side: .front,
+        kind: .muscle(.deltoidSide),
+        path: Path { p in
+            p.move(to: CGPoint(x: 33.4, y: 51.7))
+            p.addCurve(to: CGPoint(x: 31.8, y: 53.2), control1: CGPoint(x: 33, y: 51.8), control2: CGPoint(x: 32.3, y: 52.6))
+            p.addCurve(to: CGPoint(x: 30.5, y: 55.2), control1: CGPoint(x: 31.4, y: 53.8), control2: CGPoint(x: 30.9, y: 54.5))
+            p.addCurve(to: CGPoint(x: 29.6, y: 57.4), control1: CGPoint(x: 30.1, y: 55.9), control2: CGPoint(x: 29.8, y: 56.6))
+            p.addCurve(to: CGPoint(x: 29.1, y: 60.2), control1: CGPoint(x: 29.4, y: 58.3), control2: CGPoint(x: 29.3, y: 58.9))
+            p.addCurve(to: CGPoint(x: 28.7, y: 65), control1: CGPoint(x: 29, y: 61.5), control2: CGPoint(x: 28.6, y: 63.9))
+            p.addCurve(to: CGPoint(x: 29.6, y: 67), control1: CGPoint(x: 28.8, y: 66.1), control2: CGPoint(x: 29.1, y: 66.5))
+            p.addCurve(to: CGPoint(x: 31.5, y: 67.7), control1: CGPoint(x: 30.1, y: 67.5), control2: CGPoint(x: 31, y: 68))
+            p.addCurve(to: CGPoint(x: 32.9, y: 65.2), control1: CGPoint(x: 32, y: 67.4), control2: CGPoint(x: 32.6, y: 66.2))
+            p.addCurve(to: CGPoint(x: 33.2, y: 62), control1: CGPoint(x: 33.2, y: 64.2), control2: CGPoint(x: 33.1, y: 63))
+            p.addCurve(to: CGPoint(x: 33.5, y: 59.5), control1: CGPoint(x: 33.3, y: 61), control2: CGPoint(x: 33.4, y: 60.3))
+            p.addCurve(to: CGPoint(x: 33.7, y: 57), control1: CGPoint(x: 33.6, y: 58.7), control2: CGPoint(x: 33.6, y: 57.8))
+            p.addCurve(to: CGPoint(x: 34, y: 54.5), control1: CGPoint(x: 33.8, y: 56.2), control2: CGPoint(x: 33.9, y: 55.2))
+            p.addCurve(to: CGPoint(x: 34.4, y: 52.6), control1: CGPoint(x: 34.1, y: 53.8), control2: CGPoint(x: 34.5, y: 53.1))
+            p.addCurve(to: CGPoint(x: 33.4, y: 51.7), control1: CGPoint(x: 34.3, y: 52.1), control2: CGPoint(x: 33.8, y: 51.6))
+            p.closeSubpath()
+        }
+    )
+
+    static let frontDeltoidSideL = FigureRegion(
+        id: "front.deltoid-side.l",
+        side: .front,
+        kind: .muscle(.deltoidSide),
+        path: Path { p in
             p.move(to: CGPoint(x: 86.6, y: 51.7))
-            p.addCurve(to: CGPoint(x: 88.2, y: 53.2), control1: CGPoint(x: 87.4, y: 52), control2: CGPoint(x: 87.7, y: 52.6))
+            p.addCurve(to: CGPoint(x: 88.2, y: 53.2), control1: CGPoint(x: 87, y: 51.8), control2: CGPoint(x: 87.7, y: 52.6))
             p.addCurve(to: CGPoint(x: 89.5, y: 55.2), control1: CGPoint(x: 88.6, y: 53.8), control2: CGPoint(x: 89.1, y: 54.5))
             p.addCurve(to: CGPoint(x: 90.4, y: 57.4), control1: CGPoint(x: 89.9, y: 55.9), control2: CGPoint(x: 90.2, y: 56.6))
             p.addCurve(to: CGPoint(x: 90.9, y: 60.2), control1: CGPoint(x: 90.6, y: 58.3), control2: CGPoint(x: 90.7, y: 58.9))
-            p.addCurve(to: CGPoint(x: 91.3, y: 65), control1: CGPoint(x: 91, y: 61.5), control2: CGPoint(x: 91.9, y: 63.7))
-            p.addCurve(to: CGPoint(x: 87.5, y: 68), control1: CGPoint(x: 90.7, y: 66.3), control2: CGPoint(x: 88.8, y: 67.7))
-            p.addCurve(to: CGPoint(x: 83.5, y: 67), control1: CGPoint(x: 86.2, y: 68.3), control2: CGPoint(x: 84.7, y: 67.9))
-            p.addCurve(to: CGPoint(x: 80.5, y: 62.5), control1: CGPoint(x: 82.3, y: 66.1), control2: CGPoint(x: 81.1, y: 64.2))
-            p.addCurve(to: CGPoint(x: 79.8, y: 57), control1: CGPoint(x: 79.9, y: 60.8), control2: CGPoint(x: 79.8, y: 58.6))
-            p.addCurve(to: CGPoint(x: 80.8, y: 53), control1: CGPoint(x: 79.8, y: 55.4), control2: CGPoint(x: 80.2, y: 53.9))
-            p.addCurve(to: CGPoint(x: 83.5, y: 51.4), control1: CGPoint(x: 81.4, y: 52.1), control2: CGPoint(x: 82.5, y: 51.6))
-            p.addCurve(to: CGPoint(x: 86.6, y: 51.7), control1: CGPoint(x: 84.5, y: 51.2), control2: CGPoint(x: 85.8, y: 51.4))
+            p.addCurve(to: CGPoint(x: 91.3, y: 65), control1: CGPoint(x: 91, y: 61.5), control2: CGPoint(x: 91.4, y: 63.9))
+            p.addCurve(to: CGPoint(x: 90.4, y: 67), control1: CGPoint(x: 91.2, y: 66.1), control2: CGPoint(x: 90.9, y: 66.5))
+            p.addCurve(to: CGPoint(x: 88.5, y: 67.7), control1: CGPoint(x: 89.9, y: 67.5), control2: CGPoint(x: 89, y: 68))
+            p.addCurve(to: CGPoint(x: 87.1, y: 65.2), control1: CGPoint(x: 88, y: 67.4), control2: CGPoint(x: 87.4, y: 66.2))
+            p.addCurve(to: CGPoint(x: 86.8, y: 62), control1: CGPoint(x: 86.8, y: 64.2), control2: CGPoint(x: 86.9, y: 63))
+            p.addCurve(to: CGPoint(x: 86.5, y: 59.5), control1: CGPoint(x: 86.7, y: 61), control2: CGPoint(x: 86.6, y: 60.3))
+            p.addCurve(to: CGPoint(x: 86.3, y: 57), control1: CGPoint(x: 86.4, y: 58.7), control2: CGPoint(x: 86.4, y: 57.8))
+            p.addCurve(to: CGPoint(x: 86, y: 54.5), control1: CGPoint(x: 86.2, y: 56.2), control2: CGPoint(x: 86.1, y: 55.2))
+            p.addCurve(to: CGPoint(x: 85.6, y: 52.6), control1: CGPoint(x: 85.9, y: 53.8), control2: CGPoint(x: 85.5, y: 53.1))
+            p.addCurve(to: CGPoint(x: 86.6, y: 51.7), control1: CGPoint(x: 85.7, y: 52.1), control2: CGPoint(x: 86.2, y: 51.6))
             p.closeSubpath()
         }
     )
@@ -594,19 +646,19 @@ private nonisolated extension FigurePaths {
         side: .back,
         kind: .muscle(.deltoidRear),
         path: Path { p in
-            p.move(to: CGPoint(x: 33.4, y: 51.7))
-            p.addCurve(to: CGPoint(x: 31.8, y: 53.2), control1: CGPoint(x: 32.6, y: 52), control2: CGPoint(x: 32.3, y: 52.6))
-            p.addCurve(to: CGPoint(x: 30.5, y: 55.2), control1: CGPoint(x: 31.4, y: 53.8), control2: CGPoint(x: 30.9, y: 54.5))
-            p.addCurve(to: CGPoint(x: 29.6, y: 57.4), control1: CGPoint(x: 30.1, y: 55.9), control2: CGPoint(x: 29.8, y: 56.6))
-            p.addCurve(to: CGPoint(x: 29.1, y: 60.2), control1: CGPoint(x: 29.4, y: 58.3), control2: CGPoint(x: 29.3, y: 58.9))
-            p.addCurve(to: CGPoint(x: 28.7, y: 65), control1: CGPoint(x: 29, y: 61.5), control2: CGPoint(x: 28.1, y: 63.7))
-            p.addCurve(to: CGPoint(x: 32.5, y: 68), control1: CGPoint(x: 29.3, y: 66.3), control2: CGPoint(x: 31.2, y: 67.7))
-            p.addCurve(to: CGPoint(x: 36.5, y: 67), control1: CGPoint(x: 33.8, y: 68.3), control2: CGPoint(x: 35.3, y: 67.9))
-            p.addCurve(to: CGPoint(x: 39.5, y: 62.5), control1: CGPoint(x: 37.7, y: 66.1), control2: CGPoint(x: 38.9, y: 64.2))
+            p.move(to: CGPoint(x: 35.8, y: 52.3))
+            p.addCurve(to: CGPoint(x: 35.2, y: 54.5), control1: CGPoint(x: 35.6, y: 52.8), control2: CGPoint(x: 35.3, y: 53.7))
+            p.addCurve(to: CGPoint(x: 34.9, y: 57), control1: CGPoint(x: 35.1, y: 55.3), control2: CGPoint(x: 35, y: 56.2))
+            p.addCurve(to: CGPoint(x: 34.7, y: 59.5), control1: CGPoint(x: 34.8, y: 57.8), control2: CGPoint(x: 34.8, y: 58.7))
+            p.addCurve(to: CGPoint(x: 34.4, y: 62), control1: CGPoint(x: 34.6, y: 60.3), control2: CGPoint(x: 34.5, y: 61.2))
+            p.addCurve(to: CGPoint(x: 34.1, y: 64.4), control1: CGPoint(x: 34.3, y: 62.8), control2: CGPoint(x: 34, y: 63.7))
+            p.addCurve(to: CGPoint(x: 34.7, y: 66.4), control1: CGPoint(x: 34.1, y: 65.1), control2: CGPoint(x: 34.3, y: 66))
+            p.addCurve(to: CGPoint(x: 36.5, y: 67), control1: CGPoint(x: 35.1, y: 66.8), control2: CGPoint(x: 35.7, y: 67.7))
+            p.addCurve(to: CGPoint(x: 39.5, y: 62.5), control1: CGPoint(x: 37.3, y: 66.3), control2: CGPoint(x: 38.9, y: 64.2))
             p.addCurve(to: CGPoint(x: 40.2, y: 57), control1: CGPoint(x: 40.1, y: 60.8), control2: CGPoint(x: 40.2, y: 58.6))
             p.addCurve(to: CGPoint(x: 39.2, y: 53), control1: CGPoint(x: 40.2, y: 55.4), control2: CGPoint(x: 39.8, y: 53.9))
-            p.addCurve(to: CGPoint(x: 36.5, y: 51.4), control1: CGPoint(x: 38.6, y: 52.1), control2: CGPoint(x: 37.5, y: 51.6))
-            p.addCurve(to: CGPoint(x: 33.4, y: 51.7), control1: CGPoint(x: 35.5, y: 51.2), control2: CGPoint(x: 34.2, y: 51.4))
+            p.addCurve(to: CGPoint(x: 36.5, y: 51.4), control1: CGPoint(x: 38.6, y: 52.1), control2: CGPoint(x: 37.1, y: 51.5))
+            p.addCurve(to: CGPoint(x: 35.8, y: 52.3), control1: CGPoint(x: 35.9, y: 51.3), control2: CGPoint(x: 36, y: 51.8))
             p.closeSubpath()
         }
     )
@@ -616,19 +668,67 @@ private nonisolated extension FigurePaths {
         side: .back,
         kind: .muscle(.deltoidRear),
         path: Path { p in
+            p.move(to: CGPoint(x: 84.2, y: 52.3))
+            p.addCurve(to: CGPoint(x: 84.8, y: 54.5), control1: CGPoint(x: 84.4, y: 52.8), control2: CGPoint(x: 84.7, y: 53.7))
+            p.addCurve(to: CGPoint(x: 85.1, y: 57), control1: CGPoint(x: 84.9, y: 55.3), control2: CGPoint(x: 85, y: 56.2))
+            p.addCurve(to: CGPoint(x: 85.3, y: 59.5), control1: CGPoint(x: 85.2, y: 57.8), control2: CGPoint(x: 85.2, y: 58.7))
+            p.addCurve(to: CGPoint(x: 85.6, y: 62), control1: CGPoint(x: 85.4, y: 60.3), control2: CGPoint(x: 85.5, y: 61.2))
+            p.addCurve(to: CGPoint(x: 85.9, y: 64.4), control1: CGPoint(x: 85.7, y: 62.8), control2: CGPoint(x: 86, y: 63.7))
+            p.addCurve(to: CGPoint(x: 85.3, y: 66.4), control1: CGPoint(x: 85.9, y: 65.1), control2: CGPoint(x: 85.7, y: 66))
+            p.addCurve(to: CGPoint(x: 83.5, y: 67), control1: CGPoint(x: 84.9, y: 66.8), control2: CGPoint(x: 84.3, y: 67.7))
+            p.addCurve(to: CGPoint(x: 80.5, y: 62.5), control1: CGPoint(x: 82.7, y: 66.3), control2: CGPoint(x: 81.1, y: 64.2))
+            p.addCurve(to: CGPoint(x: 79.8, y: 57), control1: CGPoint(x: 79.9, y: 60.8), control2: CGPoint(x: 79.8, y: 58.6))
+            p.addCurve(to: CGPoint(x: 80.8, y: 53), control1: CGPoint(x: 79.8, y: 55.4), control2: CGPoint(x: 80.2, y: 53.9))
+            p.addCurve(to: CGPoint(x: 83.5, y: 51.4), control1: CGPoint(x: 81.4, y: 52.1), control2: CGPoint(x: 82.9, y: 51.5))
+            p.addCurve(to: CGPoint(x: 84.2, y: 52.3), control1: CGPoint(x: 84.1, y: 51.3), control2: CGPoint(x: 84, y: 51.8))
+            p.closeSubpath()
+        }
+    )
+
+    static let backDeltoidSideL = FigureRegion(
+        id: "back.deltoid-side.l",
+        side: .back,
+        kind: .muscle(.deltoidSide),
+        path: Path { p in
+            p.move(to: CGPoint(x: 33.4, y: 51.7))
+            p.addCurve(to: CGPoint(x: 31.8, y: 53.2), control1: CGPoint(x: 33, y: 51.8), control2: CGPoint(x: 32.3, y: 52.6))
+            p.addCurve(to: CGPoint(x: 30.5, y: 55.2), control1: CGPoint(x: 31.4, y: 53.8), control2: CGPoint(x: 30.9, y: 54.5))
+            p.addCurve(to: CGPoint(x: 29.6, y: 57.4), control1: CGPoint(x: 30.1, y: 55.9), control2: CGPoint(x: 29.8, y: 56.6))
+            p.addCurve(to: CGPoint(x: 29.1, y: 60.2), control1: CGPoint(x: 29.4, y: 58.3), control2: CGPoint(x: 29.3, y: 58.9))
+            p.addCurve(to: CGPoint(x: 28.7, y: 65), control1: CGPoint(x: 29, y: 61.5), control2: CGPoint(x: 28.6, y: 63.9))
+            p.addCurve(to: CGPoint(x: 29.6, y: 67), control1: CGPoint(x: 28.8, y: 66.1), control2: CGPoint(x: 29.1, y: 66.5))
+            p.addCurve(to: CGPoint(x: 31.5, y: 67.7), control1: CGPoint(x: 30.1, y: 67.5), control2: CGPoint(x: 31, y: 68))
+            p.addCurve(to: CGPoint(x: 32.9, y: 65.2), control1: CGPoint(x: 32, y: 67.4), control2: CGPoint(x: 32.6, y: 66.2))
+            p.addCurve(to: CGPoint(x: 33.2, y: 62), control1: CGPoint(x: 33.2, y: 64.2), control2: CGPoint(x: 33.1, y: 63))
+            p.addCurve(to: CGPoint(x: 33.5, y: 59.5), control1: CGPoint(x: 33.3, y: 61), control2: CGPoint(x: 33.4, y: 60.3))
+            p.addCurve(to: CGPoint(x: 33.7, y: 57), control1: CGPoint(x: 33.6, y: 58.7), control2: CGPoint(x: 33.6, y: 57.8))
+            p.addCurve(to: CGPoint(x: 34, y: 54.5), control1: CGPoint(x: 33.8, y: 56.2), control2: CGPoint(x: 33.9, y: 55.2))
+            p.addCurve(to: CGPoint(x: 34.4, y: 52.6), control1: CGPoint(x: 34.1, y: 53.8), control2: CGPoint(x: 34.5, y: 53.1))
+            p.addCurve(to: CGPoint(x: 33.4, y: 51.7), control1: CGPoint(x: 34.3, y: 52.1), control2: CGPoint(x: 33.8, y: 51.6))
+            p.closeSubpath()
+        }
+    )
+
+    static let backDeltoidSideR = FigureRegion(
+        id: "back.deltoid-side.r",
+        side: .back,
+        kind: .muscle(.deltoidSide),
+        path: Path { p in
             p.move(to: CGPoint(x: 86.6, y: 51.7))
-            p.addCurve(to: CGPoint(x: 88.2, y: 53.2), control1: CGPoint(x: 87.4, y: 52), control2: CGPoint(x: 87.7, y: 52.6))
+            p.addCurve(to: CGPoint(x: 88.2, y: 53.2), control1: CGPoint(x: 87, y: 51.8), control2: CGPoint(x: 87.7, y: 52.6))
             p.addCurve(to: CGPoint(x: 89.5, y: 55.2), control1: CGPoint(x: 88.6, y: 53.8), control2: CGPoint(x: 89.1, y: 54.5))
             p.addCurve(to: CGPoint(x: 90.4, y: 57.4), control1: CGPoint(x: 89.9, y: 55.9), control2: CGPoint(x: 90.2, y: 56.6))
             p.addCurve(to: CGPoint(x: 90.9, y: 60.2), control1: CGPoint(x: 90.6, y: 58.3), control2: CGPoint(x: 90.7, y: 58.9))
-            p.addCurve(to: CGPoint(x: 91.3, y: 65), control1: CGPoint(x: 91, y: 61.5), control2: CGPoint(x: 91.9, y: 63.7))
-            p.addCurve(to: CGPoint(x: 87.5, y: 68), control1: CGPoint(x: 90.7, y: 66.3), control2: CGPoint(x: 88.8, y: 67.7))
-            p.addCurve(to: CGPoint(x: 83.5, y: 67), control1: CGPoint(x: 86.2, y: 68.3), control2: CGPoint(x: 84.7, y: 67.9))
-            p.addCurve(to: CGPoint(x: 80.5, y: 62.5), control1: CGPoint(x: 82.3, y: 66.1), control2: CGPoint(x: 81.1, y: 64.2))
-            p.addCurve(to: CGPoint(x: 79.8, y: 57), control1: CGPoint(x: 79.9, y: 60.8), control2: CGPoint(x: 79.8, y: 58.6))
-            p.addCurve(to: CGPoint(x: 80.8, y: 53), control1: CGPoint(x: 79.8, y: 55.4), control2: CGPoint(x: 80.2, y: 53.9))
-            p.addCurve(to: CGPoint(x: 83.5, y: 51.4), control1: CGPoint(x: 81.4, y: 52.1), control2: CGPoint(x: 82.5, y: 51.6))
-            p.addCurve(to: CGPoint(x: 86.6, y: 51.7), control1: CGPoint(x: 84.5, y: 51.2), control2: CGPoint(x: 85.8, y: 51.4))
+            p.addCurve(to: CGPoint(x: 91.3, y: 65), control1: CGPoint(x: 91, y: 61.5), control2: CGPoint(x: 91.4, y: 63.9))
+            p.addCurve(to: CGPoint(x: 90.4, y: 67), control1: CGPoint(x: 91.2, y: 66.1), control2: CGPoint(x: 90.9, y: 66.5))
+            p.addCurve(to: CGPoint(x: 88.5, y: 67.7), control1: CGPoint(x: 89.9, y: 67.5), control2: CGPoint(x: 89, y: 68))
+            p.addCurve(to: CGPoint(x: 87.1, y: 65.2), control1: CGPoint(x: 88, y: 67.4), control2: CGPoint(x: 87.4, y: 66.2))
+            p.addCurve(to: CGPoint(x: 86.8, y: 62), control1: CGPoint(x: 86.8, y: 64.2), control2: CGPoint(x: 86.9, y: 63))
+            p.addCurve(to: CGPoint(x: 86.5, y: 59.5), control1: CGPoint(x: 86.7, y: 61), control2: CGPoint(x: 86.6, y: 60.3))
+            p.addCurve(to: CGPoint(x: 86.3, y: 57), control1: CGPoint(x: 86.4, y: 58.7), control2: CGPoint(x: 86.4, y: 57.8))
+            p.addCurve(to: CGPoint(x: 86, y: 54.5), control1: CGPoint(x: 86.2, y: 56.2), control2: CGPoint(x: 86.1, y: 55.2))
+            p.addCurve(to: CGPoint(x: 85.6, y: 52.6), control1: CGPoint(x: 85.9, y: 53.8), control2: CGPoint(x: 85.5, y: 53.1))
+            p.addCurve(to: CGPoint(x: 86.6, y: 51.7), control1: CGPoint(x: 85.7, y: 52.1), control2: CGPoint(x: 86.2, y: 51.6))
             p.closeSubpath()
         }
     )

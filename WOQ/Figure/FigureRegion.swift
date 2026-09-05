@@ -37,6 +37,7 @@ nonisolated enum FigureRegionKind: Sendable, Equatable {
 /// | `traps-upper` (front)  | `.muscle(.traps)`|
 /// | `traps` (back)         | `.muscle(.traps)`|
 /// | `deltoid-front`        | `.muscle(.deltoidFront)` |
+/// | `deltoid-side`         | `.muscle(.deltoidSide)`  |
 /// | `deltoid-rear`         | `.muscle(.deltoidRear)`  |
 /// | `chest`                | `.muscle(.chest)`        |
 /// | `biceps`               | `.muscle(.biceps)`       |
@@ -57,8 +58,10 @@ nonisolated enum FigureRegionKind: Sendable, Equatable {
 /// | `abs.lines`            | `.decoration`            |
 /// | `outline`              | `.outline`               |
 ///
-/// `Muscle.deltoidSide` has no region of its own: `FigureView` paints it onto
-/// the front delts (front view) and rear delts (back view) instead.
+/// Every `Muscle` case has regions of its own; each one paints only those.
+/// `deltoid-side` is the only group drawn in both views: the shoulder cap is
+/// split lengthwise into a medial head (`deltoid-front` / `deltoid-rear`) and
+/// the lateral head (`deltoid-side`), which looks the same from either side.
 nonisolated struct FigureRegion: Sendable, Identifiable {
     let id: String
     let side: FigureSide

@@ -2,6 +2,7 @@
 |---|---|---|---|---|
 | traps-upper | Upper traps | front | yes | `front.traps-upper.r`, `front.traps-upper.l` |
 | deltoid-front | Front delts | front | yes | `front.deltoid-front.r`, `front.deltoid-front.l` |
+| deltoid-side | Side delts | front, back | yes | `front.deltoid-side.r`, `front.deltoid-side.l`, `back.deltoid-side.l`, `back.deltoid-side.r` |
 | chest | Chest | front | yes | `front.chest.r`, `front.chest.l` |
 | biceps | Biceps | front | yes | `front.biceps.r`, `front.biceps.l` |
 | forearm-front | Forearms (front) | front | yes | `front.forearm-front.r`, `front.forearm-front.l` |

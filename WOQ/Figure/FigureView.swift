@@ -226,10 +226,10 @@ struct FigureView: View {
     /// aspect-fit box.
     ///
     /// Inverts `fitTransform` and tests the untransformed region paths, so the
-    /// hit area is exactly the shape that was painted. `deltoidSide` has no
-    /// region of its own, so tapping a delt always yields the region's own
-    /// muscle (`deltoidFront` on the front figure, `deltoidRear` on the back);
-    /// side delts are only reachable through the intensity chips elsewhere.
+    /// hit area is exactly the shape that was painted. Every muscle owns its
+    /// regions, so a tap on the lateral half of a shoulder cap yields
+    /// `deltoidSide` and a tap on the medial half `deltoidFront` (front figure)
+    /// or `deltoidRear` (back figure).
     static func muscle(at point: CGPoint, canvasSize: CGSize, side: FigureSide) -> Muscle? {
         let transform = fitTransform(FigurePaths.viewBox, into: canvasSize)
         let determinant = transform.a * transform.d - transform.b * transform.c
@@ -245,27 +245,23 @@ struct FigureView: View {
         return nil
     }
 
-    /// The muscles to paint in the selection colour, with `deltoidSide` folded
-    /// onto the delts that this side actually draws (same rule as
-    /// `intensities(for:side:)`).
+    /// The muscles to paint in the selection colour.
+    ///
+    /// Every muscle owns its regions, so this is the selection itself; `side`
+    /// is kept in the signature because which regions exist is a per-view fact
+    /// and callers already pass it.
     static func selected(from selection: Set<Muscle>, side: FigureSide) -> Set<Muscle> {
-        guard selection.contains(.deltoidSide) else { return selection }
-        var result = selection
-        result.insert(side == .front ? .deltoidFront : .deltoidRear)
-        return result
+        selection
     }
 
-    /// Highest intensity per muscle, with `deltoidSide` folded onto the front
-    /// delts (front view) or the rear delts (back view) unless those are
-    /// already tagged with a higher intensity.
+    /// Highest intensity per muscle. A muscle paints only its own regions, so
+    /// there is nothing to fold: `deltoidSide` colours the lateral half of the
+    /// shoulder cap in both views and leaves `deltoidFront` / `deltoidRear`
+    /// alone. `side` is unused for the same reason as in `selected(from:side:)`.
     static func intensities(for tags: [MuscleTag], side: FigureSide) -> [Muscle: Intensity] {
         var result: [Muscle: Intensity] = [:]
         for tag in tags {
             result[tag.muscle] = max(result[tag.muscle] ?? tag.intensity, tag.intensity)
-        }
-        if let sideDelts = result[.deltoidSide] {
-            let host: Muscle = side == .front ? .deltoidFront : .deltoidRear
-            result[host] = max(result[host] ?? sideDelts, sideDelts)
         }
         return result
     }

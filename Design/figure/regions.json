@@ -28,6 +28,20 @@
     "side": "l"
   },
   {
+    "id": "front.deltoid-side.r",
+    "group": "deltoid-side",
+    "displayName": "Side delts",
+    "view": "front",
+    "side": "r"
+  },
+  {
+    "id": "front.deltoid-side.l",
+    "group": "deltoid-side",
+    "displayName": "Side delts",
+    "view": "front",
+    "side": "l"
+  },
+  {
     "id": "front.chest.r",
     "group": "chest",
     "displayName": "Chest",
@@ -157,6 +171,20 @@
     "id": "back.deltoid-rear.r",
     "group": "deltoid-rear",
     "displayName": "Rear delts",
+    "view": "back",
+    "side": "r"
+  },
+  {
+    "id": "back.deltoid-side.l",
+    "group": "deltoid-side",
+    "displayName": "Side delts",
+    "view": "back",
+    "side": "l"
+  },
+  {
+    "id": "back.deltoid-side.r",
+    "group": "deltoid-side",
+    "displayName": "Side delts",
     "view": "back",
     "side": "r"
   },

@@ -3,7 +3,8 @@
 import json, os, sys
 from geom import *
 
-OUT = os.path.dirname(os.path.abspath(__file__))
+# Outputs land next to the generator's parent: Design/figure/.
+OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAPER, BODY, INK = "#F7F3E8", "#FBF8F0", "#111111"
 PASTEL = {"red": "#F4A6A6", "blue": "#A8C8F0", "yellow": "#F6E3A1", "green": "#B5DFB0"}
 
@@ -59,15 +60,33 @@ def lozenge(outer_names, inner_names, y0, y1, n=5, cap=1.6, m=M):
     return smooth_closed(pts)
 
 
+# The shoulder cap is split along its length into two regions with the usual
+# ~1 unit seam. The medial ~55% is the anterior head on the front view and the
+# posterior head on the back view; the lateral ~45% is the side delt, which is
+# the same shape in both views (Muscle.deltoidSide).
+def delt_medial():
+    """Medial ~55% of the shoulder cap: deltoid-front / deltoid-rear."""
+    return smooth_closed([(84.2, 52.3), (84.8, 54.5), (85.1, 57), (85.3, 59.5), (85.6, 62),
+                          (85.9, 64.4), (85.3, 66.4), (83.5, 67), (80.5, 62.5), (79.8, 57),
+                          (80.8, 53), (83.5, 51.4)])
+
+
+def delt_lateral():
+    """Lateral ~45% of the shoulder cap: deltoid-side, identical in both views."""
+    outer = E(['delt_cap', 'uarm_outer'], 50.5, 65, M, 6)
+    return smooth_closed(outer + [(90.4, 67), (88.5, 67.7), (87.1, 65.2), (86.8, 62),
+                                  (86.5, 59.5), (86.3, 57), (86, 54.5), (85.6, 52.6)])
+
+
 # ------------------------------------------------------------ FRONT regions (x>=60 side)
 def front_regions():
     R = {}
     # upper traps: thin band on the neck/shoulder slope
     slope = E('trap_slope', 68.5, 78.5, 1.7, 5, axis='x')
     R['traps-upper'] = smooth_closed(slope + [(78.6, 53.0), (74.5, 52.4), (70.5, 51.4)], corners=(0,))
-    # front deltoid: rounded shoulder cap
-    delt_outer = E(['delt_cap', 'uarm_outer'], 50.5, 65, M, 6)
-    R['deltoid-front'] = smooth_closed(delt_outer + [(87.5, 68), (83.5, 67), (80.5, 62.5), (79.8, 57), (80.8, 53), (83.5, 51.4)])
+    # shoulder cap: anterior head medial, side delt lateral
+    R['deltoid-front'] = delt_medial()
+    R['deltoid-side'] = delt_lateral()
     # chest plate
     R['chest'] = smooth_closed([(62, 55.5), (70, 55), (77, 55.8), (77.8, 60.5), (77.6, 65.5), (76.5, 69.2), (73, 73.2), (66, 74), (62, 72.5)], corners=(0, 8))
     # obliques: strip between abs and torso side
@@ -97,8 +116,8 @@ def back_regions():
     R = {}
     slope = E('trap_slope', 69.5, 78.5, 1.7, 4, axis='x')
     R['traps'] = smooth_closed([(61.5, 47), (67.5, 46.7)] + slope + [(79, 52.8), (74.5, 58.2), (68, 65.5), (61.5, 71)], corners=(0, 5 + len(slope)))
-    delt_outer = E(['delt_cap', 'uarm_outer'], 50.5, 65, M, 6)
-    R['deltoid-rear'] = smooth_closed(delt_outer + [(87.5, 68), (83.5, 67), (80.5, 62.5), (79.8, 57), (80.8, 53), (83.5, 51.4)])
+    R['deltoid-rear'] = delt_medial()
+    R['deltoid-side'] = delt_lateral()
     R['rhomboids-upper-back'] = smooth_closed([(61.5, 75), (66, 69.5), (71.5, 67), (73.5, 70), (72.5, 76.5), (68.5, 83), (61.5, 87)], corners=(0, 6))
     side = E(['torso_side', 'hip'], 75, 105, M, 6)
     R['lats'] = smooth_closed(side + [(70, 108.6), (66, 109.3), (65.8, 102), (66.5, 94), (72.2, 84.5)], corners=(len(side)+1, len(side)+3))
@@ -116,7 +135,8 @@ def back_regions():
 BACK_LOWER = smooth_closed([(56.8, 93), (60, 92.4), (63.2, 93), (63.5, 102.5), (63.2, 112), (60, 112.8), (56.8, 112), (56.5, 102.5)])
 
 DISPLAY = {
-    'traps-upper': 'Upper traps', 'deltoid-front': 'Front delts', 'chest': 'Chest', 'biceps': 'Biceps',
+    'traps-upper': 'Upper traps', 'deltoid-front': 'Front delts', 'deltoid-side': 'Side delts',
+    'chest': 'Chest', 'biceps': 'Biceps',
     'forearm-front': 'Forearms (front)', 'abs': 'Abs', 'obliques': 'Obliques', 'adductors': 'Adductors',
     'quads': 'Quads', 'tibialis': 'Tibialis', 'calves-front-inner': 'Calves (inner head)',
     'traps': 'Traps', 'deltoid-rear': 'Rear delts', 'rhomboids-upper-back': 'Rhomboids / upper back',
@@ -124,8 +144,8 @@ DISPLAY = {
     'glutes': 'Glutes', 'hamstrings': 'Hamstrings', 'calves': 'Calves',
 }
 
-FRONT_ORDER = ['traps-upper', 'deltoid-front', 'chest', 'biceps', 'forearm-front', 'obliques', 'adductors', 'quads', 'tibialis']
-BACK_ORDER = ['traps', 'deltoid-rear', 'rhomboids-upper-back', 'lats', 'triceps', 'forearm-back', 'glutes', 'hamstrings', 'calves']
+FRONT_ORDER = ['traps-upper', 'deltoid-front', 'deltoid-side', 'chest', 'biceps', 'forearm-front', 'obliques', 'adductors', 'quads', 'tibialis']
+BACK_ORDER = ['traps', 'deltoid-rear', 'deltoid-side', 'rhomboids-upper-back', 'lats', 'triceps', 'forearm-back', 'glutes', 'hamstrings', 'calves']
 
 
 def build_view(view):
@@ -226,7 +246,11 @@ def main():
             seen.append(r['group'])
     for g in seen:
         rs = [r for r in rows if r['group'] == g]
-        md.append(f"| {g} | {DISPLAY[g]} | {rs[0]['view']} | {'yes' if rs[0]['side'] else 'no'} | {', '.join('`'+r['id']+'`' for r in rs)} |")
+        views = []
+        for r in rs:
+            if r['view'] not in views:
+                views.append(r['view'])
+        md.append(f"| {g} | {DISPLAY[g]} | {', '.join(views)} | {'yes' if rs[0]['side'] else 'no'} | {', '.join('`'+r['id']+'`' for r in rs)} |")
     write('regions.md', '\n'.join(md))
     print('groups:', len(seen), 'region paths:', len(rows), 'OK' if ok else 'WITH PROBLEMS')
 

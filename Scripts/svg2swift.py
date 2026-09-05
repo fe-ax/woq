@@ -27,6 +27,7 @@ MUSCLE_FOR_GROUP = {
     "traps-upper": "traps",
     "traps": "traps",
     "deltoid-front": "deltoidFront",
+    "deltoid-side": "deltoidSide",
     "deltoid-rear": "deltoidRear",
     "chest": "chest",
     "biceps": "biceps",
@@ -45,8 +46,8 @@ MUSCLE_FOR_GROUP = {
     "calves": "calves",
 }
 
-# Every Muscle case; `deltoidSide` deliberately has no region of its own
-# (FigureView paints it onto the front/rear delts).
+# Every Muscle case. All 18 have at least one region; `deltoid-side` is the only
+# group that appears in both views (the lateral head of the shoulder cap).
 MUSCLE_CASES = [
     "chest", "deltoidFront", "deltoidSide", "deltoidRear", "biceps", "triceps",
     "forearms", "abs", "obliques", "traps", "upperBack", "lats", "lowerBack",
