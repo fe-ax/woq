@@ -21,6 +21,11 @@ import os
     /// Set when a save fails, so the UI can show something instead of losing data silently.
     var lastError: String?
 
+    /// Called after every successful `save()`. `BackupScheduler.noteChange()` hangs here, so
+    /// any mutation the store performs schedules a debounced backup without views knowing.
+    /// `@ObservationIgnored` because a callback is not view state (same as `modelContext`).
+    @ObservationIgnored var onSaved: (() -> Void)?
+
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
@@ -229,6 +234,7 @@ import os
         do {
             try modelContext.save()
             if lastError != nil { lastError = nil }
+            onSaved?()
         } catch {
             logger.error("save failed: \(error.localizedDescription, privacy: .public)")
             lastError = error.localizedDescription
