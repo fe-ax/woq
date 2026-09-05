@@ -17,6 +17,9 @@ struct StepperField<Field: Hashable>: View {
     var focus: FocusState<Field?>.Binding
     var field: Field
     var isInvalid: Bool
+    /// Greyed placeholder shown inside the field while it is empty, e.g. the
+    /// value from the previous set ("40", "BW").
+    var prompt: String?
     var accessibilityLabel: String
 
     init(
@@ -28,6 +31,7 @@ struct StepperField<Field: Hashable>: View {
         focus: FocusState<Field?>.Binding,
         field: Field,
         isInvalid: Bool = false,
+        prompt: String? = nil,
         accessibilityLabel: String
     ) {
         self.title = title
@@ -38,6 +42,7 @@ struct StepperField<Field: Hashable>: View {
         self.focus = focus
         self.field = field
         self.isInvalid = isInvalid
+        self.prompt = prompt
         self.accessibilityLabel = accessibilityLabel
     }
 
@@ -54,7 +59,7 @@ struct StepperField<Field: Hashable>: View {
                     label: String(localized: "Decrease \(accessibilityLabel)")
                 )
 
-                TextField("", text: $text)
+                TextField("", text: $text, prompt: promptText)
                     .font(Tokens.numberFont(.body))
                     .multilineTextAlignment(.center)
                     .keyboardType(keyboard)
@@ -91,6 +96,14 @@ struct StepperField<Field: Hashable>: View {
             )
             .animation(.snappy, value: isInvalid)
         }
+    }
+
+    /// Monospaced grey placeholder, so a prompt of "22.5" lines up with typed digits.
+    private var promptText: Text? {
+        guard let prompt, !prompt.isEmpty else { return nil }
+        return Text(prompt)
+            .foregroundStyle(Tokens.muted)
+            .monospacedDigit()
     }
 
     private func stepButton(systemName: String, delta: Int, label: String) -> some View {
