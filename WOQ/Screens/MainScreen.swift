@@ -11,7 +11,7 @@ import SwiftUI
 /// animates rows between the sections (pitfall 18).
 struct MainScreen: View {
     @Environment(QueueStore.self) private var store
-    @Environment(\.modelContext) private var modelContext
+    @Environment(BackupFolder.self) private var backupFolder
 
     @Query(sort: QueueStore.sortDescriptors, animation: .snappy)
     private var exercises: [Exercise]
@@ -19,6 +19,14 @@ struct MainScreen: View {
     @State private var searchText = ""
     @State private var showAddSheet = false
     @State private var detailExercise: Exercise?
+
+    /// The app menu (long-press the title), which holds the backup settings.
+    @State private var showMenu = false
+    /// Drives the shared folder picker / restore prompt for the banner (`BackupSetupFlow`).
+    @State private var showsFolderPicker = false
+    @State private var restoreCheckToken = 0
+    /// Mirrors `BackupBanner.isSnoozed()` so tapping "Later" hides the card at once.
+    @State private var isBannerSnoozed = false
 
     /// Muscle filter (PLAN.md section 2, "Search"). View state only: never
     /// persisted, and it never touches the store, so opening the panel or
@@ -32,6 +40,11 @@ struct MainScreen: View {
     /// Draft handed over by the add sheet; applied when the `@Query` catches up
     /// and the in-progress exercise actually changes.
     @State private var pendingDraft: SetDraft?
+    /// Half-typed drafts of exercises that were put back (PLAN.md section 2,
+    /// "Drafts (changed)"). Restored when the same exercise is started again,
+    /// dropped on finalize. In memory only: never persisted, lost on quit. An
+    /// entry for a deleted exercise is simply never looked up again.
+    @State private var keptDrafts: [UUID: SetDraft] = [:]
 
     @State private var hint: String?
     @State private var flashExerciseID: UUID?
@@ -40,10 +53,6 @@ struct MainScreen: View {
     @State private var startHapticCount = 0
     @State private var successHapticCount = 0
     @State private var warningHapticCount = 0
-
-    #if DEBUG
-    @State private var showDebugDialog = false
-    #endif
 
     @FocusState private var focus: InProgressCard.Field?
 
@@ -74,6 +83,19 @@ struct MainScreen: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
+
+                if showsBackupBanner {
+                    BackupBanner(
+                        onChoose: { showsFolderPicker = true },
+                        onLater: {
+                            BackupBanner.snooze()
+                            withAnimation(.snappy) { isBannerSnoozed = true }
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 if showMusclePanel {
                     MuscleFilterPanel(
@@ -117,6 +139,25 @@ struct MainScreen: View {
         .sheet(item: $detailExercise) { exercise in
             ExerciseDetailSheet(exercise: exercise)
         }
+        .sheet(isPresented: $showMenu) {
+            AppMenuSheet(onHint: { hint = $0 })
+        }
+        // The banner's "Choose folder" shares its picker and restore prompt with
+        // the menu sheet (BackupSetupFlow in BackupBanner.swift).
+        .backupSetupFlow(
+            showsPicker: $showsFolderPicker,
+            restoreCheckToken: $restoreCheckToken,
+            onMessage: { hint = $0 },
+            onRestored: { hint = $0 }
+        )
+        .task { isBannerSnoozed = BackupBanner.isSnoozed() }
+        .animation(.snappy, value: showsBackupBanner)
+    }
+
+    /// PLAN.md section 2 "Backups": nudge Marco only when there is something to
+    /// lose, no folder is configured yet, and he did not tap "Later" recently.
+    private var showsBackupBanner: Bool {
+        backupFolder.url == nil && !exercises.isEmpty && !isBannerSnoozed
     }
 
     // MARK: - Header
@@ -133,32 +174,15 @@ struct MainScreen: View {
         }
     }
 
-    @ViewBuilder
+    /// Long-pressing the title opens `AppMenuSheet` (backup folder, last backup,
+    /// restore, and in DEBUG the sample data). In both configurations, so the
+    /// backup settings are reachable in a release build too.
     private var title: some View {
-        let text = Text(String(localized: "Workout Queue"))
+        Text(String(localized: "Workout Queue"))
             .font(Tokens.titleFont)
             .foregroundStyle(Tokens.ink)
-
-        #if DEBUG
-        text
             .accessibilityAddTraits(.isHeader)
-            .onLongPressGesture(minimumDuration: 0.8) { showDebugDialog = true }
-            // An alert, not a `confirmationDialog`: iOS 26 draws the dialog
-            // without a visible Cancel (TODO.md).
-            .alert(
-                Text(verbatim: "Debug"),
-                isPresented: $showDebugDialog
-            ) {
-                Button(String(localized: "Insert sample data")) {
-                    withAnimation(.snappy) {
-                        SeedData.insertSamples(using: store, context: modelContext)
-                    }
-                }
-                Button(String(localized: "Cancel"), role: .cancel) {}
-            }
-        #else
-        text.accessibilityAddTraits(.isHeader)
-        #endif
+            .onLongPressGesture(minimumDuration: 0.8) { showMenu = true }
     }
 
     // MARK: - Scroll content
@@ -331,7 +355,12 @@ struct MainScreen: View {
         switch result {
         case .started:
             startHapticCount += 1
-            draft = SetDraft()
+            // A draft kept when this exercise was put back comes back with it.
+            // It has to travel through `pendingDraft` as well, because the
+            // `onChange(of: inProgress?.id)` below resets `draft` afterwards.
+            let kept = keptDrafts.removeValue(forKey: exercise.id)
+            pendingDraft = kept
+            draft = kept ?? SetDraft()
             focus = nil
             // The row only exists after this update, so scroll on the next turn.
             Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
@@ -343,6 +372,11 @@ struct MainScreen: View {
 
     private func putBack(_ exercise: Exercise) {
         focus = nil
+        // Half-typed numbers survive the swap (PLAN.md section 2, "Drafts
+        // (changed)"); an untouched draft is not worth keeping.
+        if !draft.isEmpty {
+            keptDrafts[exercise.id] = draft
+        }
         withAnimation(.snappy) { store.putBack(exercise) }
         draft = SetDraft()
     }
@@ -350,6 +384,7 @@ struct MainScreen: View {
     private func finalize(_ exercise: Exercise, with set: ValidatedSet) {
         let id = exercise.id
         focus = nil
+        keptDrafts.removeValue(forKey: id)
         withAnimation(.snappy) { _ = store.finalize(exercise, with: set) }
         successHapticCount += 1
         draft = SetDraft()
@@ -412,8 +447,11 @@ struct MainScreen: View {
         for: Exercise.self, Entry.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
-    MainScreen()
+    let folder = BackupFolder()
+
+    return MainScreen()
         .modelContainer(container)
         .environment(QueueStore(modelContext: container.mainContext))
-        .preferredColorScheme(.light)
+        .environment(folder)
+        .environment(BackupScheduler(context: container.mainContext, folder: folder))
 }

@@ -28,6 +28,10 @@ targets:
         UILaunchScreen: { UIColorName: LaunchBackground }
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        # Documents/Backups shows up in Files under "On My iPhone > WOQ" and opens in place,
+        # so woq-backup.json is reachable without any picker (WOQ/Backup/BackupFolder.swift).
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
         PRODUCT_NAME: WOQ

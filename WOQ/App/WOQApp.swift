@@ -6,11 +6,27 @@ import os
 struct WOQApp: App {
     private let container: ModelContainer
     @State private var store: QueueStore
+    /// The folder Marco picks once in Files; nil until he does (WOQ/Backup/BackupFolder.swift).
+    @State private var backupFolder: BackupFolder
+    /// Debounced automatic backups. One instance for the whole app, fed by `store.onSaved`.
+    @State private var backupScheduler: BackupScheduler
+
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let container = WOQApp.makeContainer()
         self.container = container
-        _store = State(initialValue: QueueStore(modelContext: container.mainContext))
+
+        let store = QueueStore(modelContext: container.mainContext)
+        let folder = BackupFolder()
+        let scheduler = BackupScheduler(context: container.mainContext, folder: folder)
+        // Every successful save restarts the 3-second debounce; weak so the closure the store
+        // holds forever cannot keep a dead scheduler alive.
+        store.onSaved = { [weak scheduler] in scheduler?.noteChange() }
+
+        _store = State(initialValue: store)
+        _backupFolder = State(initialValue: folder)
+        _backupScheduler = State(initialValue: scheduler)
     }
 
     var body: some Scene {
@@ -18,6 +34,15 @@ struct WOQApp: App {
             rootView
                 .modelContainer(container)
                 .environment(store)
+                .environment(backupFolder)
+                .environment(backupScheduler)
+        }
+        // iOS may suspend the process before the debounce task wakes up, so flush a pending
+        // backup synchronously on the way out (BackupScheduler.backupNowIfNeeded()).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                backupScheduler.backupNowIfNeeded()
+            }
         }
     }
 
@@ -66,7 +91,11 @@ struct WOQApp: App {
 
             #if DEBUG
             deleteStoreFiles()
-            if let retried = try? ModelContainer(for: schema, configurations: configuration) {
+            if let retried = try? ModelContainer(
+                for: schema,
+                migrationPlan: WOQMigrationPlan.self,
+                configurations: configuration
+            ) {
                 logger.notice("model container rebuilt after deleting the development store")
                 return retried
             }
@@ -76,6 +105,7 @@ struct WOQApp: App {
                 logger.error("falling back to an in-memory container: data will not persist")
                 return try ModelContainer(
                     for: schema,
+                    migrationPlan: WOQMigrationPlan.self,
                     configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
                 )
             } catch {
