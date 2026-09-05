@@ -15,6 +15,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 375MMG6TQL
 targets:
   WOQ:
     type: application
