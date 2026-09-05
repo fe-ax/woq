@@ -16,7 +16,6 @@ struct WOQApp: App {
     var body: some Scene {
         WindowGroup {
             rootView
-                .preferredColorScheme(.light)
                 .modelContainer(container)
                 .environment(store)
         }

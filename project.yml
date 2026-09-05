@@ -27,7 +27,6 @@ targets:
         # Paper launch screen instead of white (Assets.xcassets/LaunchBackground.colorset, #F7F3E8).
         UILaunchScreen: { UIColorName: LaunchBackground }
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIUserInterfaceStyle: Light
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
