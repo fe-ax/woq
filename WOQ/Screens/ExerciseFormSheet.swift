@@ -61,15 +61,18 @@ struct ExerciseFormSheet: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(String(localized: "Done")) { focus = nil }
-                        .buttonStyle(.plain)
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Tokens.ink)
+            // Paper bar above the number pads, which have no return key
+            // (PLAN.md pitfall 5). The name field keeps its own return key.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isNumericFieldFocused {
+                    KeyboardAccessoryBar(
+                        showsNext: canFocusNext,
+                        onNext: focusNext,
+                        onDone: { focus = nil }
+                    )
                 }
             }
+            .animation(.snappy, value: focus)
         }
         .presentationBackground(Tokens.paper)
         .presentationDragIndicator(.visible)
@@ -272,6 +275,33 @@ struct ExerciseFormSheet: View {
         !trimmedName.isEmpty && !isDuplicateName && weightProblem == nil
     }
 
+    // MARK: - Focus chain (PLAN.md pitfall 5)
+
+    /// The accessory bar belongs to the number pads only.
+    private var isNumericFieldFocused: Bool {
+        switch focus {
+        case .weight, .reps, .repsRight: true
+        case .name, .none: false
+        }
+    }
+
+    /// The R field is skipped for a bilateral exercise.
+    private var canFocusNext: Bool {
+        switch focus {
+        case .weight: true
+        case .reps: isUnilateral
+        case .repsRight, .name, .none: false
+        }
+    }
+
+    private func focusNext() {
+        switch focus {
+        case .weight: focus = .reps
+        case .reps: focus = isUnilateral ? .repsRight : nil
+        case .repsRight, .name, .none: focus = nil
+        }
+    }
+
     private func loadOnce() {
         guard !didLoad else { return }
         didLoad = true
@@ -325,7 +355,12 @@ struct SheetHeaderBar<Trailing: View>: View {
 
             Spacer(minLength: 8)
 
+            // The buttons keep their intrinsic width at every Dynamic Type
+            // size — without this "Cancel" hyphenates onto two lines at XXXL.
+            // The title shrinks instead.
             HStack(spacing: 8) { trailing }
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)

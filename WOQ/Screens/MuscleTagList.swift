@@ -43,6 +43,8 @@ struct MuscleTagList: View {
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(muscle.displayName)
+        .accessibilityValue(intensity(for: muscle)?.displayName ?? String(localized: "None"))
+        .accessibilityHint(String(localized: "Cycles primary, secondary, stabiliser and none"))
     }
 
     private func intensity(for muscle: Muscle) -> Intensity? {

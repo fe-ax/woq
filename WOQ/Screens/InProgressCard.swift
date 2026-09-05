@@ -56,7 +56,10 @@ struct InProgressCard: View {
 
     private var headerRow: some View {
         HStack(alignment: .top, spacing: 10) {
+            // Decoration here: the muscles are read out on the detail sheet, and
+            // VoiceOver should reach the name and the fields first.
             FigurePairView(tags: exercise.muscleTags, size: .thumbnail)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
@@ -74,9 +77,12 @@ struct InProgressCard: View {
                             RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
                                 .strokeBorder(Tokens.ink, lineWidth: Tokens.hairline)
                         )
-                        .accessibilityLabel(String(localized: "Left and right separately"))
                 }
             }
+            // One element that announces which exercise is in progress.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityTitle)
+            .accessibilityAddTraits(.isHeader)
 
             Spacer(minLength: 0)
 
@@ -172,6 +178,13 @@ struct InProgressCard: View {
     }
 
     // MARK: - Derived
+
+    /// "Bench press, in progress" — the card's state, spoken before the fields.
+    private var accessibilityTitle: String {
+        exercise.isUnilateral
+            ? String(localized: "\(exercise.name), in progress, left and right separately")
+            : String(localized: "\(exercise.name), in progress")
+    }
 
     private var isValid: Bool {
         draft.isComplete(isUnilateral: exercise.isUnilateral)

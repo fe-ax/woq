@@ -9,6 +9,7 @@ struct SearchField: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Tokens.muted)
+                .accessibilityHidden(true)
 
             TextField(String(localized: "Search exercises or muscles"), text: $text)
                 .textInputAutocapitalization(.never)
@@ -16,6 +17,7 @@ struct SearchField: View {
                 .foregroundStyle(Tokens.ink)
                 .tint(Tokens.ink)
                 .submitLabel(.search)
+                .accessibilityLabel(String(localized: "Search exercises or muscles"))
 
             if !text.isEmpty {
                 Button {

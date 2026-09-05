@@ -78,7 +78,10 @@ struct LaneSeparator: View {
                 .padding(.leading, Tokens.laneColumn)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // The rule itself is decoration; the "QUEUE" label is the only cue that
+        // the queue section starts, so it stays as a heading VoiceOver can jump to.
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 #if DEBUG
 /// DEBUG root used by `xcrun simctl launch <sim> nl.feax.woq --preview <name>` to show one sheet's content
@@ -20,6 +21,8 @@ struct DebugPreviewRoot: View {
     /// make the preview jump to a different exercise mid-check.
     @State private var pinnedID: PersistentIdentifier?
 
+    private static let logger = Logger(subsystem: "nl.feax.woq", category: "debug-preview")
+
     var body: some View {
         ZStack {
             Tokens.paper.ignoresSafeArea()
@@ -39,7 +42,11 @@ struct DebugPreviewRoot: View {
         switch name {
         case "add":
             ExerciseFormSheet(mode: .add) { result in
-                print("ADDED", result.exercise.name, result.outcome)
+                // No `print`: the result goes to the unified log, where
+                // `xcrun simctl spawn <sim> log stream` can pick it up.
+                Self.logger.notice(
+                    "added \(result.exercise.name, privacy: .public), outcome \(String(describing: result.outcome), privacy: .public)"
+                )
             }
 
         case "edit":

@@ -57,8 +57,10 @@ extension View {
 
     ZStack {
         Tokens.paper.ignoresSafeArea()
-        Button("Show hint") {
+        Button {
             message = "Finish the current exercise first"
+        } label: {
+            Text(verbatim: "Show hint")
         }
         .buttonStyle(.paper)
     }

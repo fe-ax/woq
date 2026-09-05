@@ -29,6 +29,7 @@ struct ComponentGallery: View {
                     intensityChips
                     lanes
                     buttons
+                    keyboardBar
                     water
                     toast
                 }
@@ -164,12 +165,21 @@ struct ComponentGallery: View {
         }
     }
 
+    /// Shown inline here; on the real screens it rides on the keyboard through
+    /// `.safeAreaInset(edge: .bottom)`.
+    private var keyboardBar: some View {
+        section("KeyboardAccessoryBar") {
+            KeyboardAccessoryBar(showsNext: true, onNext: { focus = .reps }, onDone: { focus = nil })
+            KeyboardAccessoryBar(showsNext: false, onNext: {}, onDone: { focus = nil })
+        }
+    }
+
     private var water: some View {
         section("WaterBackground") {
             OutlinedCard(padding: 0) {
                 ZStack {
                     WaterBackground()
-                    Text(verbatim: "Bench press — 40 kg x 10")
+                    Text(verbatim: "Bench press — 40 kg \(Formatting.timesSign) 10")
                         .font(Tokens.numberFont(.body, weight: .semibold))
                         .foregroundStyle(Tokens.ink)
                 }

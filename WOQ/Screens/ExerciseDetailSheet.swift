@@ -43,10 +43,12 @@ struct ExerciseDetailSheet: View {
         .sheet(item: $editedEntry) { entry in
             EntryEditSheet(entry: entry, isUnilateral: exercise.isUnilateral)
         }
-        .confirmationDialog(
+        // `confirmationDialog` renders on iOS 26 as a compact card whose only
+        // way out is a tap outside, so both destructive confirmations are
+        // alerts with a visible Cancel (TODO.md).
+        .alert(
             deleteExercisePrompt,
-            isPresented: $isConfirmingExerciseDelete,
-            titleVisibility: .visible
+            isPresented: $isConfirmingExerciseDelete
         ) {
             Button(String(localized: "Delete exercise"), role: .destructive) {
                 store.deleteExercise(exercise)
@@ -54,10 +56,9 @@ struct ExerciseDetailSheet: View {
             }
             Button(String(localized: "Cancel"), role: .cancel) {}
         }
-        .confirmationDialog(
+        .alert(
             String(localized: "Delete this set?"),
             isPresented: entryDeleteBinding,
-            titleVisibility: .visible,
             presenting: entryPendingDelete
         ) { entry in
             Button(String(localized: "Delete set"), role: .destructive) {
@@ -67,6 +68,8 @@ struct ExerciseDetailSheet: View {
             Button(String(localized: "Cancel"), role: .cancel) {
                 entryPendingDelete = nil
             }
+        } message: { entry in
+            Text(Formatting.setString(for: entry))
         }
     }
 
@@ -151,7 +154,7 @@ struct ExerciseDetailSheet: View {
                                 )
                                 .frame(width: 12, height: 12)
 
-                            Text("\(intensity.displayName): \(names)")
+                            Text(String(localized: "\(intensity.displayName): \(names)"))
                                 .font(.subheadline)
                                 .foregroundStyle(Tokens.ink)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -189,6 +192,8 @@ struct ExerciseDetailSheet: View {
                     Text(Formatting.setString(for: entry))
                         .font(Tokens.numberFont(.body, weight: .semibold))
                         .foregroundStyle(Tokens.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
                 .accessibilityElement(children: .combine)
 
@@ -261,8 +266,8 @@ struct ExerciseDetailSheet: View {
         return String(localized: "Delete \(exercise.name)? Its \(count) logged sets are deleted too.")
     }
 
-    /// `confirmationDialog(_:isPresented:titleVisibility:presenting:)` needs a Bool
-    /// binding next to the presented value; clearing it clears the pending entry.
+    /// `alert(_:isPresented:presenting:actions:message:)` needs a Bool binding
+    /// next to the presented value; clearing it clears the pending entry.
     private var entryDeleteBinding: Binding<Bool> {
         Binding(
             get: { entryPendingDelete != nil },

@@ -50,15 +50,18 @@ struct EntryEditSheet: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(String(localized: "Done")) { focus = nil }
-                        .buttonStyle(.plain)
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Tokens.ink)
+            // Paper bar above the number pads, which have no return key
+            // (PLAN.md pitfall 5).
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if focus != nil {
+                    KeyboardAccessoryBar(
+                        showsNext: canFocusNext,
+                        onNext: focusNext,
+                        onDone: { focus = nil }
+                    )
                 }
             }
+            .animation(.snappy, value: focus)
         }
         .presentationDetents([.medium, .large])
         .presentationBackground(Tokens.paper)
@@ -159,6 +162,25 @@ struct EntryEditSheet: View {
 
     private var weightProblem: DraftProblem? {
         draft.weightProblem()
+    }
+
+    // MARK: - Focus chain (PLAN.md pitfall 5)
+
+    /// The R field is skipped for a bilateral exercise.
+    private var canFocusNext: Bool {
+        switch focus {
+        case .weight: true
+        case .reps: isUnilateral
+        case .repsRight, .none: false
+        }
+    }
+
+    private func focusNext() {
+        switch focus {
+        case .weight: focus = .reps
+        case .reps: focus = isUnilateral ? .repsRight : nil
+        case .repsRight, .none: focus = nil
+        }
     }
 
     private var validatedSet: ValidatedSet? {

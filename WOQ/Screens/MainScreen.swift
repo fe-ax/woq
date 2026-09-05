@@ -75,33 +75,20 @@ struct MainScreen: View {
             pendingDraft = nil
             focus = nil
         }
-        // Keyboard toolbar for the number pads, which have no return key
+        // Paper accessory bar for the number pads, which have no return key
         // (PLAN.md pitfall 5). Only while an in-progress field is focused, so
-        // the search field keeps a plain keyboard.
-        .toolbar {
+        // the search field keeps a plain keyboard. With the keyboard up the
+        // bottom safe area sits above it, so the bar rides on the keyboard.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if focus != nil {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Button { focusNext() } label: {
-                        Text(String(localized: "Next"))
-                            .foregroundStyle(Tokens.ink)
-                            .lineLimit(1)
-                            .fixedSize()
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canFocusNext)
-
-                    Spacer()
-
-                    Button { focus = nil } label: {
-                        Text(String(localized: "Done"))
-                            .foregroundStyle(Tokens.ink)
-                            .lineLimit(1)
-                            .fixedSize()
-                    }
-                    .buttonStyle(.plain)
-                }
+                KeyboardAccessoryBar(
+                    showsNext: canFocusNext,
+                    onNext: focusNext,
+                    onDone: { focus = nil }
+                )
             }
         }
+        .animation(.snappy, value: focus)
         .sheet(isPresented: $showAddSheet) {
             ExerciseFormSheet(mode: .add, onAdded: handleAdded)
         }
@@ -134,10 +121,11 @@ struct MainScreen: View {
         text
             .accessibilityAddTraits(.isHeader)
             .onLongPressGesture(minimumDuration: 0.8) { showDebugDialog = true }
-            .confirmationDialog(
+            // An alert, not a `confirmationDialog`: iOS 26 draws the dialog
+            // without a visible Cancel (TODO.md).
+            .alert(
                 Text(verbatim: "Debug"),
-                isPresented: $showDebugDialog,
-                titleVisibility: .visible
+                isPresented: $showDebugDialog
             ) {
                 Button(String(localized: "Insert sample data")) {
                     withAnimation(.snappy) {

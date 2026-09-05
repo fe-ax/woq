@@ -26,13 +26,17 @@ struct ExerciseRow: View {
                         .lineLimit(2)
 
                     Text(relativeDate)
-                        .font(.subheadline)
+                        .font(Tokens.numberFont(.subheadline))
                         .foregroundStyle(Tokens.muted)
 
+                    // The set string stays on one line at large Dynamic Type
+                    // sizes and shrinks a little instead of wrapping.
                     Text(setText)
                         .font(.subheadline)
                         .monospacedDigit()
                         .foregroundStyle(Tokens.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
 
                 Spacer(minLength: 0)
