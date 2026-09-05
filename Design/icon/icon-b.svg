@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- WOQ app icon, variant B: "Punched plus node".
+       The app's add button: solid ink circle with the plus punched out so paper shows through. -->
+  <rect x="0" y="0" width="1024" height="1024" fill="#F7F3E8"/>
+
+  <!-- lane the node sits on -->
+  <rect x="484" y="96" width="56" height="832" fill="#F6E3A1" stroke="#111111" stroke-width="5"/>
+
+  <!-- ink node -->
+  <circle cx="512" cy="512" r="268" fill="#111111"/>
+
+  <!-- punched plus (paper colour, single path so there is no seam) -->
+  <path d="M478,378 L546,378 L546,478 L646,478 L646,546 L546,546 L546,646 L478,646 L478,546 L378,546 L378,478 L478,478 Z"
+        fill="#F7F3E8"/>
+</svg>

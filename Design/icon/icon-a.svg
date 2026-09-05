@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- WOQ app icon, variant A: "Node on lane".
+       Palette: paper #F7F3E8, card #FFFDF8, ink #111111, yellow #F6E3A1, blue #A8C8F0 -->
+  <rect x="0" y="0" width="1024" height="1024" fill="#F7F3E8"/>
+
+  <!-- main (develop) lane -->
+  <rect x="352" y="96" width="64" height="832" fill="#F6E3A1" stroke="#111111" stroke-width="5"/>
+
+  <!-- branch curving off to the upper right (black outline under blue core) -->
+  <path d="M384,560 C498,536 578,448 704,300" fill="none" stroke="#111111"
+        stroke-width="72" stroke-linecap="round"/>
+  <path d="M384,560 C498,536 578,448 704,300" fill="none" stroke="#A8C8F0"
+        stroke-width="40" stroke-linecap="round"/>
+
+  <!-- large commit node on the lane -->
+  <circle cx="384" cy="560" r="130" fill="#FFFDF8" stroke="#111111" stroke-width="28"/>
+
+  <!-- smaller branch-tip node -->
+  <circle cx="704" cy="300" r="74" fill="#A8C8F0" stroke="#111111" stroke-width="26"/>
+</svg>
