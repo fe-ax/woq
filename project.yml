@@ -1,0 +1,43 @@
+name: WOQ
+options:
+  bundleIdPrefix: nl.feax
+  deploymentTarget: { iOS: "26.0" }
+  xcodeVersion: "26.6"
+  createIntermediateGroups: true
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_STRICT_CONCURRENCY: complete
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  WOQ:
+    type: application
+    platform: iOS
+    sources: [WOQ]
+    info:
+      path: WOQ/App/Info.plist
+      properties:
+        CFBundleDisplayName: WOQ
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Light
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_NAME: WOQ
+        PRODUCT_BUNDLE_IDENTIFIER: nl.feax.woq
+        # target level: XcodeGen's iOS application preset sets "1,2" here and would win over settings.base
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Debug: { MTL_ENABLE_DEBUG_INFO: INCLUDE_SOURCE }
