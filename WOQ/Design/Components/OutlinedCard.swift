@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Reusable paper card: card fill, 1.5 pt ink border, 3 pt corners and an optional 2 pt hard offset shadow.
+///
+/// The shadow uses `Tokens.shadow`, not ink: on dark paper an ink-coloured
+/// offset would read as a light halo around the card instead of a shadow.
 struct OutlinedCard<Content: View>: View {
     var padding: CGFloat = Tokens.cardPadding
     var showsShadow: Bool = false
@@ -20,7 +23,7 @@ struct OutlinedCard<Content: View>: View {
             .background {
                 if showsShadow {
                     RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
-                        .fill(Tokens.ink)
+                        .fill(Tokens.shadow)
                         .offset(x: Tokens.shadowOffset, y: Tokens.shadowOffset)
                 }
             }

@@ -17,7 +17,7 @@ struct ExerciseRow: View {
     var body: some View {
         OutlinedCard {
             HStack(alignment: .center, spacing: 12) {
-                FigurePairView(tags: exercise.muscleTags, size: .thumbnail)
+                FigurePairView(tags: exercise.muscleTags, size: .thumbnail, palette: Tokens.figurePalette)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)

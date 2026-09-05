@@ -22,7 +22,7 @@ struct IntensityChip: View {
         Button(action: onTap) {
             Text(label)
                 .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(Tokens.ink)
+                .foregroundStyle(foreground)
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -58,6 +58,12 @@ struct IntensityChip: View {
         case .secondary?: Tokens.yellow
         case .stabiliser?: Tokens.paleYellow
         }
+    }
+
+    /// The pastel fills stay light-ish in both appearances, so their label stays
+    /// dark; the empty chip is a plain card and follows the ink.
+    private var foreground: Color {
+        intensity == nil ? Tokens.ink : Tokens.inkOnPastel
     }
 }
 

@@ -4,8 +4,8 @@ import SwiftUI
 /// figure to filter the queue by muscle (PLAN.md section 2, "Search").
 ///
 /// The figures are a picker, not an exercise, so they carry no intensity tags:
-/// untouched muscles stay card white and selected ones fill blue. Selection is
-/// view state only — it is never persisted and never touches the store.
+/// untouched muscles stay the card colour and selected ones fill blue. Selection
+/// is view state only — it is never persisted and never touches the store.
 struct MuscleFilterPanel: View {
     @Binding var selection: Set<Muscle>
     @Binding var isPresented: Bool
@@ -16,6 +16,7 @@ struct MuscleFilterPanel: View {
                 FigurePairView(
                     tags: [],
                     size: .large,
+                    palette: Tokens.figurePalette,
                     selection: selection,
                     onTapMuscle: toggle
                 )
@@ -80,7 +81,8 @@ struct MuscleFilterPanel: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
             }
-            .foregroundStyle(Tokens.ink)
+            // Blue is a pastel in both appearances, so the label stays dark.
+            .foregroundStyle(Tokens.inkOnPastel)
             .lineLimit(1)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
@@ -196,6 +198,5 @@ private struct MuscleFilterPanelPreviewHost: View {
             MuscleFilterPanel(selection: $selection, isPresented: $isPresented)
                 .padding(16)
         }
-        .preferredColorScheme(.light)
     }
 }

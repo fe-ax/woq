@@ -227,6 +227,5 @@ struct ComponentGallery: View {
 
 #Preview {
     ComponentGallery()
-        .preferredColorScheme(.light)
 }
 #endif

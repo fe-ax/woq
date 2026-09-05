@@ -98,7 +98,7 @@ struct ExerciseFormSheet: View {
 
     /// Pinned above the scrolling form so the highlights follow every chip tap.
     private var figureBlock: some View {
-        FigurePairView(tags: tags, size: .large)
+        FigurePairView(tags: tags, size: .large, palette: Tokens.figurePalette)
             .frame(height: 150)
             .frame(maxWidth: .infinity)
             .padding(.bottom, 12)

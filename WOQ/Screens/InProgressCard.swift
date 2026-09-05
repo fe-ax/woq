@@ -58,7 +58,7 @@ struct InProgressCard: View {
         HStack(alignment: .top, spacing: 10) {
             // Decoration here: the muscles are read out on the detail sheet, and
             // VoiceOver should reach the name and the fields first.
-            FigurePairView(tags: exercise.muscleTags, size: .thumbnail)
+            FigurePairView(tags: exercise.muscleTags, size: .thumbnail, palette: Tokens.figurePalette)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {

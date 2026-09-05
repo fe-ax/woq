@@ -7,7 +7,11 @@ import SwiftUI
 /// never to content with text fields: every shaded view costs an offscreen
 /// raster pass per frame. Under Reduce Motion — or when `WOQ_STATIC_WATER` is
 /// set, which keeps screenshots deterministic — it degrades to a plain
-/// `Tokens.blue` fill.
+/// `Tokens.water` fill.
+///
+/// `Shader.Argument.color` resolves a dynamic `Color` against the appearance the
+/// view is drawn in (verified on iOS 26.5), so the light/dark `Tokens.water` pair
+/// can be handed to the shader directly — no `\.colorScheme` plumbing needed.
 struct WaterBackground: View {
     var cornerRadius: CGFloat = Tokens.radius
 
@@ -26,19 +30,19 @@ struct WaterBackground: View {
         Group {
             if isStatic {
                 Rectangle()
-                    .fill(Tokens.blue)
+                    .fill(Tokens.water)
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
                     let time = Float(context.date.timeIntervalSince(start))
                     Rectangle()
-                        .fill(Tokens.blue)
+                        .fill(Tokens.water)
                         .colorEffect(
                             ShaderLibrary.default.waterFill(
                                 .boundingRect,
                                 .float(time),
                                 .float(phase),
-                                .color(Tokens.blue),
-                                .color(Tokens.blueLight)
+                                .color(Tokens.water),
+                                .color(Tokens.waterTint)
                             )
                         )
                 }

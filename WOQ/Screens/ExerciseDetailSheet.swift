@@ -89,7 +89,7 @@ struct ExerciseDetailSheet: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                FigurePairView(tags: exercise.muscleTags, size: .large)
+                FigurePairView(tags: exercise.muscleTags, size: .large, palette: Tokens.figurePalette)
                     .frame(height: 220)
                     .frame(maxWidth: .infinity)
 
@@ -111,7 +111,8 @@ struct ExerciseDetailSheet: View {
             if exercise.isUnilateral {
                 Text(String(localized: "L/R"))
                     .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(Tokens.ink)
+                    // Sits on a blue fill, which stays pastel in both appearances.
+                    .foregroundStyle(Tokens.inkOnPastel)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(

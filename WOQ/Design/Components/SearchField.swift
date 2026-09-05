@@ -5,7 +5,7 @@ import SwiftUI
 /// The optional trailing round button opens the muscle filter panel
 /// (`MuscleFilterPanel`). It is only drawn when `onFilterTap` is set, so every
 /// other call site keeps the plain field. When muscles are selected the circle
-/// fills with `Tokens.blue` and the glyph stays ink.
+/// fills with `Tokens.blue` and the glyph switches to `Tokens.inkOnPastel`.
 struct SearchField: View {
     @Binding var text: String
     /// Draws the figure button as filled blue instead of card white.
@@ -66,7 +66,8 @@ struct SearchField: View {
         Button(action: action) {
             Image(systemName: "figure.stand")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Tokens.ink)
+                // The active circle is a pastel fill in both appearances.
+                .foregroundStyle(isFilterActive ? Tokens.inkOnPastel : Tokens.ink)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(isFilterActive ? Tokens.blue : Tokens.card))
                 .overlay(Circle().strokeBorder(Tokens.ink, lineWidth: Tokens.hairline))
