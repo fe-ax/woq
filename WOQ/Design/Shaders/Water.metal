@@ -19,8 +19,11 @@ using namespace metal;
     float w = sin(uv.x * 4.0 + t)
             + sin((uv.x * 2.0 + uv.y * 3.0) * 1.7 - t * 1.3)
             + sin((uv.y * 5.0 - uv.x * 1.5) + t * 0.7 + phase * 2.0);
-    // 0...1 caustic-like blend, capped so the bands stay a barely-there ripple.
-    half k = clamp(half(0.5 + 0.5 * (w / 3.0)), half(0.0), half(1.0)) * half(0.6);
+    // 0...1 caustic-like blend. The cap was 0.6 ("barely there"), which Marco
+    // could not see at all on the phone; at 1.0 the band uses the full
+    // base-to-tint distance and the ripple reads as motion without ever
+    // becoming a hard edge — the tint is only ~45/255 away from the base.
+    half k = clamp(half(0.5 + 0.5 * (w / 3.0)), half(0.0), half(1.0)) * half(1.0);
     half4 c = mix(base, tint, k);
     return half4(c.rgb * color.a, color.a);        // keep premultiplied alpha of the underlying fill
 }

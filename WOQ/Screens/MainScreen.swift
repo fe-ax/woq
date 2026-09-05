@@ -34,8 +34,10 @@ struct MainScreen: View {
     @State private var selectedMuscles: Set<Muscle> = []
     @State private var showMusclePanel = false
 
-    /// The in-progress draft. View state only, reset whenever the in-progress
-    /// exercise changes and never persisted (PLAN.md 3.4).
+    /// The in-progress draft. View state only, rebuilt whenever the in-progress
+    /// exercise changes and never persisted (PLAN.md 3.4). It starts as a copy
+    /// of the exercise's previous set (`prefilledDraft(for:)`), so the numbers
+    /// Marco is about to repeat are already in the fields.
     @State private var draft = SetDraft()
     /// Draft handed over by the add sheet; applied when the `@Query` catches up
     /// and the in-progress exercise actually changes.
@@ -114,8 +116,11 @@ struct MainScreen: View {
         .sensoryFeedback(.impact(weight: .light), trigger: startHapticCount)
         .sensoryFeedback(.success, trigger: successHapticCount)
         .sensoryFeedback(.warning, trigger: warningHapticCount)
-        .onChange(of: inProgress?.id) { _, _ in
-            draft = pendingDraft ?? SetDraft()
+        // `initial: true` covers the relaunch case: the app comes back with an
+        // exercise still in progress and no `start(_:)` ever runs, so the
+        // prefill has to happen on the first pass as well (PLAN.md 3.15).
+        .onChange(of: inProgress?.id, initial: true) { _, _ in
+            draft = pendingDraft ?? prefilledDraft(for: inProgress)
             pendingDraft = nil
             focus = nil
         }
@@ -229,8 +234,7 @@ struct MainScreen: View {
                     draft: $draft,
                     focus: $focus,
                     onPutBack: { putBack(exercise) },
-                    onFinalize: { set in finalize(exercise, with: set) },
-                    onSameAsLast: { fillFromLastEntry(of: exercise) }
+                    onFinalize: { set in finalize(exercise, with: set) }
                 )
                 .onLongPressGesture(minimumDuration: 0.4) { detailExercise = exercise }
             }
@@ -358,9 +362,11 @@ struct MainScreen: View {
             // A draft kept when this exercise was put back comes back with it.
             // It has to travel through `pendingDraft` as well, because the
             // `onChange(of: inProgress?.id)` below resets `draft` afterwards.
-            let kept = keptDrafts.removeValue(forKey: exercise.id)
-            pendingDraft = kept
-            draft = kept ?? SetDraft()
+            // Otherwise the previous set is copied in, so "one more set of the
+            // same" is a single tap on the checkmark.
+            let next = keptDrafts.removeValue(forKey: exercise.id) ?? prefilledDraft(for: exercise)
+            pendingDraft = next
+            draft = next
             focus = nil
             // The row only exists after this update, so scroll on the next turn.
             Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
@@ -373,8 +379,11 @@ struct MainScreen: View {
     private func putBack(_ exercise: Exercise) {
         focus = nil
         // Half-typed numbers survive the swap (PLAN.md section 2, "Drafts
-        // (changed)"); an untouched draft is not worth keeping.
-        if !draft.isEmpty {
+        // (changed)"); an untouched draft is not worth keeping — and since the
+        // draft now starts as a copy of the previous set, "untouched" means
+        // "still equal to the prefill", which would otherwise go stale if that
+        // entry were edited in the meantime.
+        if !draft.isEmpty, draft != prefilledDraft(for: exercise) {
             keptDrafts[exercise.id] = draft
         }
         withAnimation(.snappy) { store.putBack(exercise) }
@@ -395,15 +404,22 @@ struct MainScreen: View {
         }
     }
 
-    /// "Same as last time": copy the previous set into the draft (PLAN.md
-    /// section 2 "In progress").
-    private func fillFromLastEntry(of exercise: Exercise) {
-        guard let entry = exercise.lastEntry else { return }
-        draft.weightText = SetDraft.weightText(fromHalfKilos: entry.weightHalfKilos)
-        draft.repsText = SetDraft.repsText(fromReps: entry.reps)
-        draft.repsRightText = exercise.isUnilateral
-            ? SetDraft.repsText(fromReps: entry.repsRight ?? entry.reps)
-            : ""
+    /// The draft an exercise starts with: its previous set, or empty when it has
+    /// never been performed. Replaces the old "Same as last time" button — the
+    /// values are simply there, ready to be stepped or overtyped, and because
+    /// they validate the checkmark is live at once.
+    ///
+    /// A unilateral exercise whose last entry predates the L/R switch has no
+    /// `repsRight`; both sides then start from the bilateral reps.
+    private func prefilledDraft(for exercise: Exercise?) -> SetDraft {
+        guard let exercise, let entry = exercise.lastEntry else { return SetDraft() }
+        return SetDraft(
+            weightText: SetDraft.weightText(fromHalfKilos: entry.weightHalfKilos),
+            repsText: SetDraft.repsText(fromReps: entry.reps),
+            repsRightText: exercise.isUnilateral
+                ? SetDraft.repsText(fromReps: entry.repsRight ?? entry.reps)
+                : ""
+        )
     }
 
     private func handleAdded(_ result: ExerciseFormSheet.AddResult) {

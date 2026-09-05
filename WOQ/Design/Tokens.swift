@@ -56,8 +56,14 @@ nonisolated enum Tokens {
     /// keeps the same "one tinted card among paper cards" reading as the light
     /// theme (PLAN.md section 8).
     static let water = Color(light: 0xA8C8F0, dark: 0x2C3D52)
-    /// Water wave band, #C6DCF7 / #3E5878.
-    static let waterTint = Color(light: 0xC6DCF7, dark: 0x3E5878)
+    /// Water wave band, #D5E4F8 / #4A6A90.
+    ///
+    /// Pulled further from `water` on 2026-09-05: the old pair (#C6DCF7 /
+    /// #3E5878) moved a pixel by about 5/255 over a wave period, which Marco did
+    /// not notice on the phone. These sit ~45/255 (light) and ~62/255 (dark)
+    /// from the base, which together with the shader's full mix cap gives a
+    /// visible but still soft ripple.
+    static let waterTint = Color(light: 0xD5E4F8, dark: 0x4A6A90)
 
     // MARK: - Figure palette
 
