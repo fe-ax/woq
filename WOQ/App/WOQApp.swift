@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 import os
 
 @main
@@ -12,6 +13,12 @@ struct WOQApp: App {
     @State private var backupScheduler: BackupScheduler
 
     @Environment(\.scenePhase) private var scenePhase
+
+    /// Menu > Appearance. `system` (the default) leaves the theme to the iPhone
+    /// (AppSettings.swift).
+    @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = Appearance.system.rawValue
+
+    private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .system }
 
     init() {
         let container = WOQApp.makeContainer()
@@ -36,12 +43,53 @@ struct WOQApp: App {
                 .environment(store)
                 .environment(backupFolder)
                 .environment(backupScheduler)
+                // The theme is applied to the UIWindow, not with
+                // `.preferredColorScheme` — see `applyInterfaceStyle`.
+                .onChange(of: appearanceRaw, initial: true) { _, _ in
+                    WOQApp.applyInterfaceStyle(appearance)
+                }
         }
         // iOS may suspend the process before the debounce task wakes up, so flush a pending
         // backup synchronously on the way out (BackupScheduler.backupNowIfNeeded()).
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 backupScheduler.backupNowIfNeeded()
+            }
+            // A window that appeared later (or after a cold-launch race) still
+            // gets the chosen theme.
+            if phase == .active {
+                WOQApp.applyInterfaceStyle(appearance)
+            }
+        }
+    }
+
+    // MARK: - Appearance
+
+    /// Applies menu > Appearance to every window of the scene.
+    ///
+    /// `.preferredColorScheme(appearance.colorScheme)` on the root view was the
+    /// first attempt and does theme the main screen (verified 2026-09-05), but
+    /// it pins an *already presented* sheet to the scheme it was presented with:
+    /// with the phone in dark mode and the app set to Dark, switching to Light
+    /// inside the menu turned the screen behind the sheet light while the sheet
+    /// itself stayed dark. Overriding the window instead has no such pin — the
+    /// root, every sheet, the alerts and even the system file picker follow the
+    /// change live, in both directions (all verified on the simulator).
+    ///
+    /// `.unspecified` hands the choice back to the iPhone, which is exactly what
+    /// `Appearance.system` means.
+    private static func applyInterfaceStyle(_ appearance: Appearance) {
+        let style: UIUserInterfaceStyle =
+            switch appearance {
+            case .system: .unspecified
+            case .light: .light
+            case .dark: .dark
+            }
+
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
             }
         }
     }

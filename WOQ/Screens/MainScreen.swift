@@ -33,6 +33,10 @@ struct MainScreen: View {
     /// changing the selection cannot disturb an in-progress draft.
     @State private var selectedMuscles: Set<Muscle> = []
     @State private var showMusclePanel = false
+    /// The search row lives behind the header's glass button (PLAN.md section 2,
+    /// "Search"). Closing it clears the whole filter, so nothing invisible can
+    /// keep hiding queue rows.
+    @State private var showSearch = false
 
     /// The in-progress draft. View state only, rebuilt whenever the in-progress
     /// exercise changes and never persisted (PLAN.md 3.4). It starts as a copy
@@ -76,15 +80,18 @@ struct MainScreen: View {
                     .padding(.top, 4)
                     .padding(.bottom, 12)
 
-                SearchField(
-                    text: $searchText,
-                    isFilterActive: !selectedMuscles.isEmpty,
-                    filterCount: selectedMuscles.count
-                ) {
-                    withAnimation(.snappy) { showMusclePanel.toggle() }
+                if showSearch {
+                    SearchField(
+                        text: $searchText,
+                        isFilterActive: !selectedMuscles.isEmpty,
+                        filterCount: selectedMuscles.count,
+                        autofocus: true,
+                        onFilterTap: { withAnimation(.snappy) { showMusclePanel.toggle() } }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
 
                 if showsBackupBanner {
                     BackupBanner(
@@ -139,7 +146,16 @@ struct MainScreen: View {
         }
         .animation(.snappy, value: focus)
         .sheet(isPresented: $showAddSheet) {
-            ExerciseFormSheet(mode: .add, onAdded: handleAdded)
+            ExerciseFormSheet(
+                mode: .add,
+                onAdded: handleAdded,
+                onAddedPresets: { count in
+                    hint = count == 1
+                        ? String(localized: "Added 1 exercise to the queue")
+                        : String(localized: "Added \(count) exercises to the queue")
+                    successHapticCount += 1
+                }
+            )
         }
         .sheet(item: $detailExercise) { exercise in
             ExerciseDetailSheet(exercise: exercise)
@@ -173,15 +189,54 @@ struct MainScreen: View {
 
             Spacer(minLength: 8)
 
+            searchButton
+
             PunchedPlusButton {
                 showAddSheet = true
             }
         }
     }
 
-    /// Long-pressing the title opens `AppMenuSheet` (backup folder, last backup,
-    /// restore, and in DEBUG the sample data). In both configurations, so the
-    /// backup settings are reachable in a release build too.
+    /// Punched-out glass next to the plus. It turns blue while the filter bites,
+    /// so a filtered queue is readable even with the row closed — which cannot
+    /// happen, since closing the row clears the filter, but the colour is the
+    /// state indicator while the row is open.
+    private var searchButton: some View {
+        PunchedIconButton(
+            systemName: "magnifyingglass",
+            fill: isFiltering ? Tokens.blue : Tokens.ink,
+            strokes: isFiltering,
+            accessibilityLabel: String(localized: "Search"),
+            glyphSize: 20,
+            action: toggleSearch
+        )
+        .accessibilityValue(
+            isFiltering
+                ? String(localized: "Filter active")
+                : String(localized: "No filter")
+        )
+        .accessibilityAddTraits(showSearch ? [.isSelected] : [])
+    }
+
+    /// Opening only shows the row (the field takes the keyboard itself). Closing
+    /// wipes the whole filter: text, muscles and the panel. Removing the field
+    /// resigns the keyboard with it.
+    private func toggleSearch() {
+        withAnimation(.snappy) {
+            if showSearch {
+                showSearch = false
+                searchText = ""
+                selectedMuscles = []
+                showMusclePanel = false
+            } else {
+                showSearch = true
+            }
+        }
+    }
+
+    /// Long-pressing the title opens `AppMenuSheet`: the settings menu with the
+    /// Appearance and Backups pages (and Developer in DEBUG). In both
+    /// configurations, so the settings are reachable in a release build too.
     private var title: some View {
         Text(String(localized: "Workout Queue"))
             .font(Tokens.titleFont)

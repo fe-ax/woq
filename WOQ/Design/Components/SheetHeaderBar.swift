@@ -5,6 +5,9 @@ import SwiftUI
 /// stays hidden so iOS 26 cannot put glass on it (PLAN.md pitfall 7 and 29).
 struct SheetHeaderBar<Leading: View, Trailing: View>: View {
     var title: String
+    /// Makes the title itself a `.plain` button (the add sheet switches between the
+    /// form and the preset list by tapping it). nil = plain text.
+    var onTitleTap: (() -> Void)? = nil
     @ViewBuilder var leading: Leading
     @ViewBuilder var trailing: Trailing
 
@@ -12,11 +15,12 @@ struct SheetHeaderBar<Leading: View, Trailing: View>: View {
         HStack(alignment: .center, spacing: 12) {
             leading
 
-            Text(title)
-                .font(Tokens.titleFont)
-                .foregroundStyle(Tokens.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.6)
+            if let onTitleTap {
+                Button(action: onTitleTap) { titleText }
+                    .buttonStyle(.plain)
+            } else {
+                titleText
+            }
 
             Spacer(minLength: 8)
 
@@ -31,12 +35,25 @@ struct SheetHeaderBar<Leading: View, Trailing: View>: View {
         .padding(.top, 14)
         .padding(.bottom, 12)
     }
+
+    /// With a leading control the bar is tight ("New exercise" next to the switch
+    /// button plus Cancel/Save), so the title shrinks on one line instead of
+    /// wrapping and pushing the content down; without one it may wrap once.
+    private var titleText: some View {
+        Text(title)
+            .font(Tokens.titleFont)
+            .foregroundStyle(Tokens.ink)
+            .lineLimit(Leading.self == EmptyView.self ? 2 : 1)
+            .minimumScaleFactor(0.6)
+            .contentTransition(.opacity)
+    }
 }
 
 extension SheetHeaderBar where Leading == EmptyView {
     /// The common form: title left, buttons right, nothing before the title.
-    init(title: String, @ViewBuilder trailing: () -> Trailing) {
+    init(title: String, onTitleTap: (() -> Void)? = nil, @ViewBuilder trailing: () -> Trailing) {
         self.title = title
+        self.onTitleTap = onTitleTap
         self.leading = EmptyView()
         self.trailing = trailing()
     }

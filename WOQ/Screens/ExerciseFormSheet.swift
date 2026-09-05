@@ -9,6 +9,11 @@ import SwiftUI
 /// The sheet copies the edited exercise into local `@State` once and writes back only on Save
 /// (PLAN.md pitfall 19). No system navigation bar: the bar is hidden and a custom header row carries
 /// Cancel / Save, so no Liquid Glass appears (PLAN.md pitfall 7 and 29).
+///
+/// Add mode has a second face: the switch button next to the title (or a tap on the title)
+/// flips the sheet to the preset list, where several ready-made exercises can be ticked and
+/// added to the queue at once through `QueueStore.addExercises(_:)`. The header and the figure
+/// stay put across the switch; only the part under the hairline slides.
 struct ExerciseFormSheet: View {
     enum Mode {
         case add
@@ -26,6 +31,8 @@ struct ExerciseFormSheet: View {
     /// Add mode only: called once after the preset list added `count` exercises to the
     /// queue (never performed, nothing started). MainScreen shows a hint with the count.
     var onAddedPresets: ((Int) -> Void)? = nil
+    /// Add mode only: opens straight on the preset list. Used by `--preview presets`.
+    var startsInPresetMode = false
 
     @Environment(QueueStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -37,6 +44,14 @@ struct ExerciseFormSheet: View {
     @State private var firstSet = SetDraft()
     /// Guards the one-time copy in `onAppear`.
     @State private var didLoad = false
+
+    /// Add mode only: false = the form, true = the preset list.
+    @State private var showsPresets = false
+    /// Ticked preset ids (= names). Survives switching back to the form; Cancel drops it.
+    @State private var selectedPresets: Set<String> = []
+    /// `nameKey`s already in the store, read when the preset list appears so its rows can
+    /// show "Added" without one fetch per row.
+    @State private var takenNameKeys: Set<String> = []
 
     private enum Field: Hashable {
         case name
@@ -60,7 +75,7 @@ struct ExerciseFormSheet: View {
                     Rectangle()
                         .fill(Tokens.ink)
                         .frame(height: Tokens.hairline)
-                    form
+                    pages
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -82,12 +97,61 @@ struct ExerciseFormSheet: View {
         .onAppear(perform: loadOnce)
     }
 
+    /// Form and preset list overlap in a `ZStack` so the one sliding out does not push
+    /// the other down for the length of the transition.
+    @ViewBuilder
+    private var pages: some View {
+        ZStack(alignment: .top) {
+            if showsPresets {
+                PresetListView(selection: $selectedPresets, takenNameKeys: takenNameKeys)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        )
+                    )
+            } else {
+                form
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        )
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
     // MARK: - Header
 
+    @ViewBuilder
     private var header: some View {
-        SheetHeaderBar(title: title) {
-            Button(String(localized: "Cancel")) { dismiss() }
-                .buttonStyle(.paper)
+        if isAdd {
+            // The title is a switch target too (`onTitleTap`), next to the switch button.
+            SheetHeaderBar(
+                title: title,
+                onTitleTap: toggleMode,
+                leading: { switchButton },
+                trailing: { trailingButtons }
+            )
+            .accessibilityHint(switchHint)
+        } else {
+            SheetHeaderBar(title: title) { trailingButtons }
+        }
+    }
+
+    @ViewBuilder
+    private var trailingButtons: some View {
+        Button(String(localized: "Cancel")) { dismiss() }
+            .buttonStyle(.paper)
+
+        if showsPresets {
+            Button(addPresetsTitle, action: addSelectedPresets)
+                .buttonStyle(.ink)
+                .disabled(selectedPresets.isEmpty)
+                .opacity(selectedPresets.isEmpty ? 0.4 : 1)
+        } else {
             Button(String(localized: "Save"), action: save)
                 .buttonStyle(.ink)
                 .disabled(!canSave)
@@ -95,16 +159,59 @@ struct ExerciseFormSheet: View {
         }
     }
 
-    private var title: String {
-        isAdd ? String(localized: "New exercise") : String(localized: "Edit exercise")
+    /// 32 pt outlined circle, 44 pt hit area — `RoundIconButton`'s look, but this one
+    /// carries the mode instead of an action glyph. The negative padding gives the 12 pt
+    /// the hit area sticks out back to the title; the taps overlap on the title, which
+    /// switches too.
+    private var switchButton: some View {
+        Button(action: toggleMode) {
+            Image(systemName: "arrow.2.squarepath")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Tokens.ink)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Tokens.card))
+                .overlay(Circle().strokeBorder(Tokens.ink, lineWidth: Tokens.hairline))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .padding(.horizontal, -6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            showsPresets
+                ? String(localized: "Switch to the new exercise form")
+                : String(localized: "Switch to the preset list")
+        )
     }
 
-    /// Pinned above the scrolling form so the highlights follow every chip tap.
+    private var switchHint: String {
+        showsPresets
+            ? String(localized: "Switches back to the new exercise form")
+            : String(localized: "Switches to the preset list")
+    }
+
+    private var title: String {
+        if showsPresets { return String(localized: "Presets") }
+        return isAdd ? String(localized: "New exercise") : String(localized: "Edit exercise")
+    }
+
+    /// "Add" with nothing ticked, "Add 3" from one onwards.
+    private var addPresetsTitle: String {
+        selectedPresets.isEmpty
+            ? String(localized: "Add")
+            : String(localized: "Add \(selectedPresets.count)")
+    }
+
+    /// Pinned above the scrolling form so the highlights follow every chip tap. In preset
+    /// mode it shows the union of the ticked presets, so the figure fills up while ticking.
     private var figureBlock: some View {
-        FigurePairView(tags: tags, size: .large, palette: Tokens.figurePalette)
-            .frame(height: 150)
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, 12)
+        FigurePairView(
+            tags: showsPresets ? selectedPresetTags : tags,
+            size: .large,
+            palette: Tokens.figurePalette
+        )
+        .frame(height: 150)
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Form
@@ -308,10 +415,64 @@ struct ExerciseFormSheet: View {
     private func loadOnce() {
         guard !didLoad else { return }
         didLoad = true
-        guard let exercise = editedExercise else { return }
-        name = exercise.name
-        isUnilateral = exercise.isUnilateral
-        tags = exercise.muscleTags
+
+        if let exercise = editedExercise {
+            name = exercise.name
+            isUnilateral = exercise.isUnilateral
+            tags = exercise.muscleTags
+            return
+        }
+
+        if startsInPresetMode {
+            takenNameKeys = store.existingNameKeys()
+            showsPresets = true
+        }
+    }
+
+    // MARK: - Presets (add mode only)
+
+    /// The switch button and the title share this. Editing never switches.
+    private func toggleMode() {
+        guard isAdd else { return }
+        focus = nil
+        if !showsPresets {
+            // Refreshed on every entry: an exercise may have been added since the sheet opened.
+            takenNameKeys = store.existingNameKeys()
+        }
+        withAnimation(.snappy) {
+            showsPresets.toggle()
+        }
+    }
+
+    /// Union of the ticked presets, keeping the highest intensity per muscle, in
+    /// `Muscle.allCases` order — the figure treats it like any other tag list.
+    private var selectedPresetTags: [MuscleTag] {
+        var byMuscle: [Muscle: Intensity] = [:]
+        for preset in ExercisePresets.all where selectedPresets.contains(preset.id) {
+            for tag in preset.tags {
+                if let current = byMuscle[tag.muscle] {
+                    byMuscle[tag.muscle] = max(current, tag.intensity)
+                } else {
+                    byMuscle[tag.muscle] = tag.intensity
+                }
+            }
+        }
+        return Muscle.allCases.compactMap { muscle in
+            byMuscle[muscle].map { MuscleTag(muscle: muscle, intensity: $0) }
+        }
+    }
+
+    /// Adds every ticked preset in one go (never performed, nothing started — see
+    /// `QueueStore.addExercises(_:)`) and hands MainScreen the count for its hint.
+    private func addSelectedPresets() {
+        let chosen = ExercisePresets.all.filter { selectedPresets.contains($0.id) }
+        guard !chosen.isEmpty else { return }
+
+        let added = store.addExercises(chosen)
+        if !added.isEmpty {
+            onAddedPresets?(added.count)
+        }
+        dismiss()
     }
 
     private func save() {

@@ -5,9 +5,9 @@ import SwiftUI
 ///
 /// Only ever one card has it, and it is applied to a background rectangle,
 /// never to content with text fields: every shaded view costs an offscreen
-/// raster pass per frame. Under Reduce Motion — or when `WOQ_STATIC_WATER` is
-/// set, which keeps screenshots deterministic — it degrades to a plain
-/// `Tokens.water` fill.
+/// raster pass per frame. Under Reduce Motion, with "Animated water" switched
+/// off in the menu (Appearance page), or when `WOQ_STATIC_WATER` is set, which
+/// keeps screenshots deterministic, it degrades to a plain `Tokens.water` fill.
 ///
 /// `Shader.Argument.color` resolves a dynamic `Color` against the appearance the
 /// view is drawn in (verified on iOS 26.5), so the light/dark `Tokens.water` pair
@@ -17,13 +17,20 @@ struct WaterBackground: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Marco's own switch (menu > Appearance > Animated water). Read straight
+    /// from `UserDefaults` so toggling it restyles a visible card at once,
+    /// without any environment plumbing (AppSettings.swift).
+    @AppStorage(AppSettings.waterRippleKey) private var waterRipple = true
+
     /// Wall-clock origin for the shader's `time`: elapsed seconds keep float precision.
     @State private var start = Date()
     /// Random per-card phase so two cards never ripple in lockstep.
     @State private var phase = Float.random(in: 0..<(2 * .pi))
 
     private var isStatic: Bool {
-        reduceMotion || ProcessInfo.processInfo.environment["WOQ_STATIC_WATER"] != nil
+        reduceMotion
+            || !waterRipple
+            || ProcessInfo.processInfo.environment["WOQ_STATIC_WATER"] != nil
     }
 
     var body: some View {

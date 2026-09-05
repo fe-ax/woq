@@ -5,8 +5,9 @@ import os
 #if DEBUG
 /// DEBUG root used by `xcrun simctl launch <sim> nl.feax.woq --preview <name>` to show one sheet's content
 /// full-screen for visual verification without going through MainScreen. Owned by the sheets agent in wave 3.
-/// Names: "add" (ExerciseFormSheet .add), "edit" (ExerciseFormSheet .edit on a seeded exercise),
-/// "detail" (ExerciseDetailSheet on a seeded exercise with entries), "entry" (EntryEditSheet on a seeded entry).
+/// Names: "add" (ExerciseFormSheet .add), "presets" (ExerciseFormSheet .add opened on the preset list),
+/// "edit" (ExerciseFormSheet .edit on a seeded exercise), "detail" (ExerciseDetailSheet on a seeded
+/// exercise with entries), "entry" (EntryEditSheet on a seeded entry).
 ///
 /// The sheets are shown as the root view, not through `.sheet`, so a screenshot captures them full-screen.
 /// `presentationBackground` / `presentationDetents` are simply inert there.
@@ -48,6 +49,17 @@ struct DebugPreviewRoot: View {
                     "added \(result.exercise.name, privacy: .public), outcome \(String(describing: result.outcome), privacy: .public)"
                 )
             }
+
+        case "presets":
+            // Seeded samples share several names with the preset table, so the
+            // "Added" rows show up in this preview too.
+            ExerciseFormSheet(
+                mode: .add,
+                onAddedPresets: { count in
+                    Self.logger.notice("added \(count, privacy: .public) presets to the queue")
+                },
+                startsInPresetMode: true
+            )
 
         case "edit":
             if let exercise = pinned ?? taggedExercise {

@@ -14,6 +14,7 @@ struct ComponentGallery: View {
     @State private var repsText = "10"
     @State private var chips: [Intensity?] = [.primary, .secondary, .stabiliser, nil]
     @State private var checkmarkEnabled = true
+    @State private var glassIsActive = false
     @State private var undoCount = 0
     @State private var hint: String?
     @FocusState private var focus: Field?
@@ -29,6 +30,7 @@ struct ComponentGallery: View {
                     intensityChips
                     lanes
                     buttons
+                    punchedButtons
                     keyboardBar
                     water
                     toast
@@ -161,6 +163,45 @@ struct ComponentGallery: View {
 
             Text(verbatim: "put back \(undoCount)x")
                 .font(Tokens.numberFont(.caption))
+                .foregroundStyle(Tokens.muted)
+        }
+    }
+
+    /// The header trio: the plus, and the search glass in both of its states
+    /// (ink when nothing filters, blue with a hairline outline while it does).
+    private var punchedButtons: some View {
+        section("PunchedIconButton") {
+            HStack(spacing: 12) {
+                PunchedPlusButton {}
+                PunchedIconButton(
+                    systemName: "magnifyingglass",
+                    accessibilityLabel: String(localized: "Search"),
+                    glyphSize: 20
+                ) {
+                    glassIsActive.toggle()
+                }
+                PunchedIconButton(
+                    systemName: "magnifyingglass",
+                    fill: Tokens.blue,
+                    strokes: true,
+                    accessibilityLabel: String(localized: "Search"),
+                    glyphSize: 20
+                ) {
+                    glassIsActive.toggle()
+                }
+                PunchedIconButton(
+                    systemName: "magnifyingglass",
+                    fill: glassIsActive ? Tokens.blue : Tokens.ink,
+                    strokes: glassIsActive,
+                    accessibilityLabel: String(localized: "Search"),
+                    glyphSize: 20
+                ) {
+                    glassIsActive.toggle()
+                }
+            }
+
+            Text(verbatim: "plus · ink glass · blue glass · tap to animate")
+                .font(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }

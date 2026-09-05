@@ -6,14 +6,24 @@ import SwiftUI
 /// (`MuscleFilterPanel`). It is only drawn when `onFilterTap` is set, so every
 /// other call site keeps the plain field. When muscles are selected the circle
 /// fills with `Tokens.blue` and the glyph switches to `Tokens.inkOnPastel`.
+///
+/// `autofocus` is for the header's search glass on MainScreen: the field only
+/// exists while the row is open, so it takes the keyboard as soon as it appears.
 struct SearchField: View {
     @Binding var text: String
     /// Draws the figure button as filled blue instead of card white.
     var isFilterActive: Bool = false
     /// Number of selected muscles, for the button's accessibility value only.
     var filterCount: Int = 0
+    /// Opt in to taking the keyboard when the field appears.
+    var autofocus: Bool = false
     /// Set to show the figure button; `nil` hides it.
     var onFilterTap: (() -> Void)?
+
+    /// Internal on purpose: the only caller that wants focus wants it
+    /// immediately and never takes it away again — the field is removed instead,
+    /// which resigns the keyboard with it.
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -28,6 +38,7 @@ struct SearchField: View {
                 .foregroundStyle(Tokens.ink)
                 .tint(Tokens.ink)
                 .submitLabel(.search)
+                .focused($isFocused)
                 .accessibilityLabel(String(localized: "Search exercises or muscles"))
 
             if !text.isEmpty {
@@ -58,6 +69,13 @@ struct SearchField: View {
             RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
                 .strokeBorder(Tokens.ink, lineWidth: Tokens.line)
         )
+        // A focus request made in the same turn as the transition that inserts
+        // the field is dropped by UIKit, so wait one short beat before asking.
+        .task {
+            guard autofocus else { return }
+            try? await Task.sleep(for: .milliseconds(120))
+            isFocused = true
+        }
     }
 
     /// 32 pt outlined circle inside the field, styled like `RoundIconButton`

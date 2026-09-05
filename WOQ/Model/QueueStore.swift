@@ -163,6 +163,42 @@ import os
         return (exercise, .queued)
     }
 
+    /// Adds a batch of presets from the "New exercise" sheet's preset list.
+    ///
+    /// Deliberately different from `addExercise(name:isUnilateral:tags:firstSet:)`: a batch
+    /// NEVER starts anything in progress, not even when the queue is at rest. Ticking five
+    /// presets means "put these in my queue", and picking one of them to start would be a
+    /// guess; every preset therefore lands as never performed, which sorts it to the top
+    /// (PLAN.md 3.1). One `save()` for the whole batch, so one debounced backup follows.
+    ///
+    /// Names that are no longer available (case-insensitively, including duplicates inside
+    /// `presets` itself) are skipped silently — the list already shows those rows as
+    /// "Added", so a name can only collide if the store changed underneath the sheet.
+    /// Returns the exercises that were actually inserted, in the order they were given.
+    @discardableResult
+    func addExercises(_ presets: [ExercisePreset]) -> [Exercise] {
+        var taken = Set(fetch(FetchDescriptor<Exercise>()).map(\.nameKey))
+        var added: [Exercise] = []
+
+        for preset in presets {
+            let key = Self.nameKey(for: preset.name)
+            guard !key.isEmpty, !taken.contains(key) else { continue }
+            taken.insert(key)
+
+            let exercise = Exercise(
+                name: preset.name,
+                isUnilateral: preset.isUnilateral,
+                tags: preset.tags
+            )
+            modelContext.insert(exercise)
+            added.append(exercise)
+        }
+
+        guard !added.isEmpty else { return [] }
+        save()
+        return added
+    }
+
     /// Edit an exercise. Flipping `isUnilateral` leaves existing entries untouched: their
     /// `repsRight` stays as recorded, so old sets keep reading the way they were logged.
     func updateExercise(
@@ -215,6 +251,12 @@ import os
     /// Lowercased, whitespace-trimmed duplicate key (PLAN.md pitfall 10).
     static func nameKey(for name: String) -> String {
         Exercise.nameKey(for: name)
+    }
+
+    /// Every name key currently in the store. The preset list checks 39 names at once and
+    /// would otherwise run one `isNameAvailable(_:)` fetch per row on every redraw.
+    func existingNameKeys() -> Set<String> {
+        Set(fetch(FetchDescriptor<Exercise>()).map(\.nameKey))
     }
 
     /// True when no other exercise already uses this name, case- and whitespace-insensitively.
