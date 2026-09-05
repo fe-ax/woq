@@ -55,7 +55,7 @@ nonisolated enum Tokens {
     /// them drops the label contrast to about 1.05:1 on dark paper. A deep blue
     /// keeps the same "one tinted card among paper cards" reading as the light
     /// theme (PLAN.md section 8).
-    static let water = Color(light: 0x9EC1EE, dark: 0x2C3D52)
+    static let water = Color(light: 0xA3C5EF, dark: 0x2C3D52)
     /// Water wave band, #D5E4F8 / #4A6A90.
     ///
     /// Pulled further from `water` on 2026-09-05: the old pair (#C6DCF7 /
@@ -63,7 +63,7 @@ nonisolated enum Tokens {
     /// not notice on the phone. These sit ~45/255 (light) and ~62/255 (dark)
     /// from the base, which together with the shader's full mix cap gives a
     /// visible but still soft ripple.
-    static let waterTint = Color(light: 0xE8F1FC, dark: 0x577CA8)
+    static let waterTint = Color(light: 0xDFEBFA, dark: 0x51739C)
 
     // MARK: - Figure palette
 
