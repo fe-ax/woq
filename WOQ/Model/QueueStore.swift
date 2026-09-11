@@ -105,22 +105,59 @@ import os
         save()
     }
 
-    /// Finalize (PLAN.md 3.5): insert the entry, stamp `lastPerformedAt`, clear the
-    /// in-progress marker. The exercise sorts to the bottom of the queue afterwards.
+    /// Finalize (PLAN.md 3.5, extended 2026-09-12): write the whole execution — one `Entry`
+    /// per set, all sharing one fresh `executionID` and numbered by `setIndex` — stamp
+    /// `lastPerformedAt`, clear the in-progress marker. The exercise sorts to the bottom of
+    /// the queue afterwards.
+    ///
+    /// The pending sets come from the card (plus, plus, … checkmark) and are saved in ONE go:
+    /// one `save()`, so one debounced backup, and the sets can never end up half-written.
+    /// Each set keeps the moment its plus was tapped as its `Entry.date` (`PendingSet.loggedAt`),
+    /// while `date` is the checkmark. An empty list is a no-op: there is no such thing as an
+    /// execution without sets (the checkmark always contributes one), so it is logged and
+    /// nothing is touched.
     @discardableResult
-    func finalize(_ exercise: Exercise, with set: ValidatedSet, at date: Date = .now) -> Entry {
-        let entry = Entry(
-            date: date,
-            weightHalfKilos: set.weightHalfKilos,
-            reps: set.reps,
-            repsRight: set.repsRight
-        )
-        modelContext.insert(entry)
-        entry.exercise = exercise
-        exercise.lastPerformedAt = date
+    func finalize(_ exercise: Exercise, with sets: [PendingSet], at date: Date = .now) -> [Entry] {
+        guard !sets.isEmpty else {
+            logger.error("finalize with no sets for \(exercise.nameKey, privacy: .public)")
+            return []
+        }
+
+        let executionID = UUID()
+        var entries: [Entry] = []
+        entries.reserveCapacity(sets.count)
+
+        for (index, pending) in sets.enumerated() {
+            let entry = Entry(
+                date: pending.loggedAt,
+                weightHalfKilos: pending.set.weightHalfKilos,
+                reps: pending.set.reps,
+                repsRight: pending.set.repsRight,
+                executionID: executionID,
+                setIndex: index
+            )
+            modelContext.insert(entry)
+            entry.exercise = exercise
+            entries.append(entry)
+        }
+
+        // `lastPerformedAt` is the checkmark time, but never earlier than the last set:
+        // `Execution.date` is the max set date and the queue sorts on `lastPerformedAt`, so a
+        // caller that passes an older `date` (seed data, a runtime check) must not leave the
+        // exercise sorted above its own sets.
+        let lastSetAt = sets.map(\.loggedAt).max() ?? date
+        exercise.lastPerformedAt = max(date, lastSetAt)
         exercise.inProgressSince = nil
         save()
-        return entry
+        return entries
+    }
+
+    /// Single-set convenience: one set is simply an execution of one (`addExercise`'s
+    /// optional first set, `SeedData`). Returns that entry; the list handed to the multi-set
+    /// `finalize` is never empty, so the subscript cannot trap.
+    @discardableResult
+    func finalize(_ exercise: Exercise, with set: ValidatedSet, at date: Date = .now) -> Entry {
+        finalize(exercise, with: [PendingSet(set: set, loggedAt: date)], at: date)[0]
     }
 
     // MARK: - Exercises
@@ -223,6 +260,11 @@ import os
 
     /// Delete one entry and recompute the owner's `lastPerformedAt` as the max remaining
     /// entry date — nil when none is left (PLAN.md 3.8 and pitfall 11).
+    ///
+    /// Executions need no bookkeeping here: they are grouped from the entries at read time
+    /// (`Execution.group(_:isUnilateral:)`), so deleting the last set of an execution makes
+    /// that execution disappear by itself, and the history numbers sets by position rather
+    /// than by the now-gapped `setIndex`.
     func deleteEntry(_ entry: Entry) {
         let owner = entry.exercise
         entry.exercise = nil

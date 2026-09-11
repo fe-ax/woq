@@ -202,11 +202,11 @@ struct InProgressCard: View {
 
     // MARK: - Derived
 
-    /// "3 days ago · 40 kg × 10", or "First time" when there is no history.
+    /// "3 days ago · 40 kg × 10 · 3 sets", or "First time" when there is no history.
     private var lastSetLine: String {
-        guard let entry = exercise.lastEntry else { return String(localized: "First time") }
-        let when = Formatting.relativeDayString(from: entry.date)
-        return "\(when) \u{00B7} \(Formatting.setString(for: entry))"
+        guard let execution = exercise.lastExecution else { return String(localized: "First time") }
+        let when = Formatting.relativeDayString(from: execution.date)
+        return "\(when) \u{00B7} \(Formatting.executionString(peak: execution.peak, setCount: execution.setCount))"
     }
 
     /// "Bench press, in progress, last set 3 days ago, 40 kg × 10" — the card's
@@ -215,7 +215,7 @@ struct InProgressCard: View {
         let name = exercise.isUnilateral
             ? String(localized: "\(exercise.name), in progress, left and right separately")
             : String(localized: "\(exercise.name), in progress")
-        guard let entry = exercise.lastEntry else {
+        guard let entry = exercise.lastExecution?.peak else {
             return String(localized: "\(name), first time")
         }
         let when = Formatting.relativeDayString(from: entry.date)

@@ -41,6 +41,40 @@ nonisolated enum Formatting {
         )
     }
 
+    /// "1 set" / "3 sets" — how many sets one execution holds
+    /// (PLAN.md "Multi-set executions", 2026-09-12).
+    ///
+    /// A hand-written ternary rather than a stringsdict: English only (PLAN.md pitfall 22),
+    /// and the count is always >= 1 because an execution without sets cannot exist.
+    static func setCountString(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 set") : String(localized: "\(count) sets")
+    }
+
+    /// What one execution reads like on a queue row or the in-progress card: its peak set,
+    /// plus the set count when there was more than one — "40 kg \u{00D7} 10" for a single set,
+    /// "40 kg \u{00D7} 10 \u{00B7} 3 sets" for three. A one-set execution (every set logged
+    /// before schema V2) is therefore written exactly the way it always was.
+    static func executionString(
+        weightHalfKilos: Int?,
+        reps: Int,
+        repsRight: Int?,
+        setCount: Int
+    ) -> String {
+        let set = setString(weightHalfKilos: weightHalfKilos, reps: reps, repsRight: repsRight)
+        guard setCount > 1 else { return set }
+        return "\(set) \u{00B7} \(setCountString(setCount))"
+    }
+
+    /// Convenience for a stored execution: its `peak` and `setCount`.
+    static func executionString(peak: Entry, setCount: Int) -> String {
+        executionString(
+            weightHalfKilos: peak.weightHalfKilos,
+            reps: peak.reps,
+            repsRight: peak.repsRight,
+            setCount: setCount
+        )
+    }
+
     /// "Never", "Today", "Yesterday", "3 days ago", "2 weeks ago", "5 months ago",
     /// "2 years ago". Computed from calendar day differences, never from elapsed seconds
     /// (PLAN.md pitfall 9): a set logged five minutes before midnight is "Yesterday" the

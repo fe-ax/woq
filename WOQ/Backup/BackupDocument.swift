@@ -18,7 +18,7 @@ import Foundation
 ///   importer recomputes it from the entries anyway, so a hand-edited file cannot corrupt
 ///   the queue order.
 ///
-/// `formatVersion` is the file format, not the SwiftData schema version (`WOQSchemaV1`).
+/// `formatVersion` is the file format, not the SwiftData schema version (`WOQSchemaV2`).
 /// Bump it only when this JSON shape changes incompatibly, and keep a reader for the old
 /// value; adding an optional field does not need a bump.
 nonisolated struct BackupDocument: Codable, Sendable, Equatable {
@@ -166,18 +166,41 @@ nonisolated struct ExerciseRecord: Codable, Sendable, Equatable, Identifiable {
 /// One finalized set inside a `BackupDocument`. Mirrors `Entry` exactly (PLAN.md section 5):
 /// `weightHalfKilos` is integer half-kilos with nil = bodyweight, and for a unilateral
 /// exercise `reps` is the LEFT side while `repsRight` holds the right one.
+///
+/// `executionID` / `setIndex` (schema V2, PLAN.md "Multi-set executions" 2026-09-12) are
+/// optional so that a backup written before they existed still decodes: a set without them
+/// is its own one-set execution, exactly as `Entry.executionKey` decides in the store. Adding
+/// optional fields is compatible in both directions, so `formatVersion` stays 1 — an older
+/// build simply ignores the two keys.
+/// The writer always fills them in (it writes the *resolved* `Entry.executionKey`, never the
+/// raw optional), so every file written from now on groups correctly even when it is restored
+/// onto a fresh install.
 nonisolated struct EntryRecord: Codable, Sendable, Equatable, Identifiable {
     var id: UUID
     var date: Date
     var weightHalfKilos: Int?
     var reps: Int
     var repsRight: Int?
+    /// Key shared by the sets of one execution; nil only in files written before V2.
+    var executionID: UUID?
+    /// Position inside the execution; nil only in files written before V2 (read as 0).
+    var setIndex: Int?
 
-    init(id: UUID, date: Date, weightHalfKilos: Int?, reps: Int, repsRight: Int?) {
+    init(
+        id: UUID,
+        date: Date,
+        weightHalfKilos: Int?,
+        reps: Int,
+        repsRight: Int?,
+        executionID: UUID? = nil,
+        setIndex: Int? = nil
+    ) {
         self.id = id
         self.date = date
         self.weightHalfKilos = weightHalfKilos
         self.reps = reps
         self.repsRight = repsRight
+        self.executionID = executionID
+        self.setIndex = setIndex
     }
 }

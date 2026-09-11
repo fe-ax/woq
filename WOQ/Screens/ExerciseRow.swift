@@ -67,7 +67,7 @@ struct ExerciseRow: View {
     }
 
     private var setText: String {
-        guard let entry = exercise.lastEntry else { return String(localized: "No sets yet") }
-        return Formatting.setString(for: entry)
+        guard let execution = exercise.lastExecution else { return String(localized: "No sets yet") }
+        return Formatting.executionString(peak: execution.peak, setCount: execution.setCount)
     }
 }

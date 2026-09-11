@@ -121,11 +121,13 @@ struct WOQApp: App {
     /// and the container is built once more, in Release the app falls back to an in-memory
     /// container and logs, so it still launches instead of crashing.
     ///
-    /// The schema is the versioned one (`WOQSchemaV1`, see Schema.swift) and is passed together
-    /// with `WOQMigrationPlan`, so a future version only has to add a stage there instead of
-    /// wiping real data. The configuration gets the *same* `Schema` instance as the container.
+    /// The schema is the current versioned one (`WOQSchemaV2`, see Schema.swift) and is passed
+    /// together with `WOQMigrationPlan`, which carries the V1 -> V2 lightweight stage — so a
+    /// store seeded by the V1 build opens and migrates instead of being wiped, and a future
+    /// version only has to add another stage there. The configuration gets the *same* `Schema`
+    /// instance as the container.
     private static func makeContainer() -> ModelContainer {
-        let schema = Schema(versionedSchema: WOQSchemaV1.self)
+        let schema = Schema(versionedSchema: WOQSchemaV2.self)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {

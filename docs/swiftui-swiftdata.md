@@ -89,6 +89,12 @@ https://www.hackingwithswift.com/quick-start/swiftdata/how-to-create-cascade-del
   only when shipping a change to users; a V2 for a change SwiftData handles automatically triggers
   "Duplicate version checksums across stages detected" (https://blakecrosley.com/blog/swiftdata-migrations-guide,
   https://developer.apple.com/videos/play/wwdc2025/291/).
+- WOQ V1 -> V2 [verified 2026-09-12, on-disk store, Debug AND Release on simulator woq-a]: `Entry` gained
+  `executionID: UUID?` and `setIndex: Int = 0` in a copied `WOQSchemaV2`; one
+  `.lightweight(fromVersion: WOQSchemaV1.self, toVersion: WOQSchemaV2.self)` stage opened a store seeded by the
+  V1 build with no log line at all (no "model container failed" / "rebuilt after deleting" / "in-memory"), kept
+  the queue order, the in-progress exercise and all 21 exercises / 36 sets, and `sqlite3 PRAGMA table_info(ZENTRY)`
+  showed `ZEXECUTIONID` + `ZSETINDEX` added with NULL execution ids on every migrated row.
 
 **(h) What is new** [source]: iOS 18 / WWDC24 10137 added `#Index<Model>([\.a],[\.b])`, `#Unique`,
 `@Attribute(.preserveValueOnDeletion)`, history API (https://developer.apple.com/videos/play/wwdc2024/10137/).

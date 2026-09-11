@@ -77,6 +77,10 @@ import os
     /// 4. `lastPerformedAt` is recomputed from the merged entries (PLAN.md pitfall 1 and 11),
     ///    never copied from the file, so the queue order is always consistent with the sets.
     /// 5. `inProgressSince` is untouched: whatever is in progress right now stays in progress.
+    /// 6. **Executions travel with the sets.** `executionID` / `setIndex` are taken from the
+    ///    record; a file written before schema V2 has neither, and each of its sets then keeps
+    ///    its own id as the execution key — one set, one execution, which is exactly how the
+    ///    store reads such a set anyway (`Entry.executionKey`).
     ///
     /// The denormalised `nameKey` / `muscleSearchText` are refreshed through
     /// `Exercise.setName(_:)` / `setTags(_:)`, the only writers allowed to touch them.
@@ -127,11 +131,19 @@ import os
             byNameKey[exercise.nameKey] = exercise
 
             for entryRecord in record.entries {
+                // A file written before schema V2 carries neither field. Falling back to the
+                // set's own id (the same rule as `Entry.executionKey`) turns every such set
+                // into its own one-set execution instead of merging unrelated sets.
+                let executionID = entryRecord.executionID ?? entryRecord.id
+                let setIndex = entryRecord.setIndex ?? 0
+
                 if let existing = entriesByID[entryRecord.id] {
                     existing.date = entryRecord.date
                     existing.weightHalfKilos = entryRecord.weightHalfKilos
                     existing.reps = entryRecord.reps
                     existing.repsRight = entryRecord.repsRight
+                    existing.executionID = executionID
+                    existing.setIndex = setIndex
                     if existing.exercise !== exercise {
                         existing.exercise = exercise
                     }
@@ -141,7 +153,9 @@ import os
                         date: entryRecord.date,
                         weightHalfKilos: entryRecord.weightHalfKilos,
                         reps: entryRecord.reps,
-                        repsRight: entryRecord.repsRight
+                        repsRight: entryRecord.repsRight,
+                        executionID: executionID,
+                        setIndex: setIndex
                     )
                     entry.id = entryRecord.id
                     context.insert(entry)

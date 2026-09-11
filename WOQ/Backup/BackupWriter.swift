@@ -40,14 +40,23 @@ import SwiftData
                 createdAt: exercise.createdAt,
                 lastPerformedAt: exercise.lastPerformedAt,
                 entries: exercise.entries
-                    .sorted { $0.date < $1.date }
+                    .sorted {
+                        // Within one execution the sets were logged minutes apart, so date
+                        // decides; `setIndex` only settles two sets stamped in the same instant.
+                        $0.date == $1.date ? $0.setIndex < $1.setIndex : $0.date < $1.date
+                    }
                     .map { entry in
                         EntryRecord(
                             id: entry.id,
                             date: entry.date,
                             weightHalfKilos: entry.weightHalfKilos,
                             reps: entry.reps,
-                            repsRight: entry.repsRight
+                            repsRight: entry.repsRight,
+                            // The RESOLVED key, never the raw optional: a pre-V2 set falls back
+                            // to its own id, so the file states the grouping outright and a
+                            // restore onto a fresh install reproduces it without guessing.
+                            executionID: entry.executionKey,
+                            setIndex: entry.setIndex
                         )
                     }
             )

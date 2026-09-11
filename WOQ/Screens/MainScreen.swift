@@ -467,7 +467,7 @@ struct MainScreen: View {
     /// A unilateral exercise whose last entry predates the L/R switch has no
     /// `repsRight`; both sides then start from the bilateral reps.
     private func prefilledDraft(for exercise: Exercise?) -> SetDraft {
-        guard let exercise, let entry = exercise.lastEntry else { return SetDraft() }
+        guard let exercise, let entry = exercise.lastExecution?.peak else { return SetDraft() }
         return SetDraft(
             weightText: SetDraft.weightText(fromHalfKilos: entry.weightHalfKilos),
             repsText: SetDraft.repsText(fromReps: entry.reps),

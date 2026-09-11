@@ -206,3 +206,44 @@ nonisolated struct SetDraft: Equatable, Sendable {
         return "\(clamped)"
     }
 }
+
+/// A set committed with the card's plus button, waiting for the checkmark
+/// (PLAN.md "Multi-set executions", 2026-09-12).
+///
+/// View state, never persisted: the whole list is written as ONE execution when the checkmark
+/// is tapped (`QueueStore.finalize(_:with:at:)`), so a session is one store write and one
+/// debounced backup. Quitting the app loses pending sets, exactly like a half-typed draft.
+///
+/// `id` is a fresh UUID per pending row, not the future `Entry.id`: two identical sets
+/// ("40 kg × 10" twice) must stay two distinct rows in the list and in `ForEach`.
+/// `loggedAt` is when the plus was tapped, and becomes that set's `Entry.date`, so the
+/// history keeps the real per-set timing instead of stamping them all at the checkmark.
+nonisolated struct PendingSet: Identifiable, Sendable, Equatable {
+    let id: UUID
+    var set: ValidatedSet
+    var loggedAt: Date
+
+    init(set: ValidatedSet, loggedAt: Date = .now) {
+        self.id = UUID()
+        self.set = set
+        self.loggedAt = loggedAt
+    }
+}
+
+/// Everything the in-progress card holds for one exercise: the fields the user is typing in
+/// and the sets already committed with the plus button.
+///
+/// This is the unit `MainScreen` keeps per exercise — the live card, and the kept draft that
+/// put-back stores and the next start restores (PLAN.md 3.6). Pure view state; `QueueStore`
+/// only ever sees the validated result.
+nonisolated struct CardDraft: Equatable, Sendable {
+    /// The weight / reps fields, i.e. the set being typed right now.
+    var fields: SetDraft = SetDraft()
+    /// Sets already committed with the plus button, in the order they were logged.
+    var pending: [PendingSet] = []
+
+    init(fields: SetDraft = SetDraft(), pending: [PendingSet] = []) {
+        self.fields = fields
+        self.pending = pending
+    }
+}

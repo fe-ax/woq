@@ -106,14 +106,20 @@ struct DebugPreviewRoot: View {
         ordered.first { !$0.muscleTags.isEmpty }
     }
 
-    /// At least two entries, preferring a unilateral exercise so the R fields show up.
+    /// At least two entries, preferring one whose LATEST execution holds several sets (so
+    /// `--preview detail` shows the grouped card straight away), then a unilateral exercise
+    /// so the R fields show up.
     private var exerciseWithHistory: Exercise? {
         let candidates = ordered.filter { $0.entries.count >= 2 }
-        return candidates.first(where: \.isUnilateral) ?? candidates.first
+        return candidates.first { ($0.lastExecution?.setCount ?? 0) > 1 }
+            ?? candidates.first(where: \.isUnilateral)
+            ?? candidates.first
     }
 
+    /// The set `--preview entry` opens: the peak of the newest execution, i.e. exactly the
+    /// set the queue row and the card show.
     private func latestEntry(of exercise: Exercise) -> Entry? {
-        exercise.entries.max { $0.date < $1.date }
+        exercise.lastExecution?.peak
     }
 
     private var pinned: Exercise? {
