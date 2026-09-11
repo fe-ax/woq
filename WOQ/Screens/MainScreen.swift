@@ -38,25 +38,33 @@ struct MainScreen: View {
     /// keep hiding queue rows.
     @State private var showSearch = false
 
-    /// The in-progress draft. View state only, rebuilt whenever the in-progress
-    /// exercise changes and never persisted (PLAN.md 3.4). It starts as a copy
-    /// of the exercise's previous set (`prefilledDraft(for:)`), so the numbers
-    /// Marco is about to repeat are already in the fields.
-    @State private var draft = SetDraft()
+    /// Everything the in-progress card holds: the fields being typed plus the
+    /// sets already committed with its plus button (PLAN.md "Multi-set
+    /// executions", 2026-09-12). View state only, rebuilt whenever the
+    /// in-progress exercise changes and never persisted (PLAN.md 3.4). The
+    /// fields start as a copy of the previous execution's peak set
+    /// (`prefilledDraft(for:)`), so the numbers Marco is about to repeat are
+    /// already there; the pending list starts empty and is written to the store
+    /// as one execution by the checkmark.
+    @State private var card = CardDraft()
     /// Draft handed over by the add sheet; applied when the `@Query` catches up
     /// and the in-progress exercise actually changes.
-    @State private var pendingDraft: SetDraft?
-    /// Half-typed drafts of exercises that were put back (PLAN.md section 2,
-    /// "Drafts (changed)"). Restored when the same exercise is started again,
-    /// dropped on finalize. In memory only: never persisted, lost on quit. An
-    /// entry for a deleted exercise is simply never looked up again.
-    @State private var keptDrafts: [UUID: SetDraft] = [:]
+    @State private var pendingDraft: CardDraft?
+    /// Cards of exercises that were put back (PLAN.md section 2, "Drafts
+    /// (changed)", extended 2026-09-12 to the pending sets). Restored when the
+    /// same exercise is started again, dropped on finalize. In memory only:
+    /// never persisted, lost on quit. An entry for a deleted exercise is simply
+    /// never looked up again.
+    @State private var keptDrafts: [UUID: CardDraft] = [:]
 
     @State private var hint: String?
     @State private var flashExerciseID: UUID?
 
     // Haptic triggers must be counters, not Bools (PLAN.md pitfall 14).
     @State private var startHapticCount = 0
+    /// The plus on the card: a light tick per committed set, deliberately not
+    /// the success haptic — nothing is stored until the checkmark.
+    @State private var addSetHapticCount = 0
     @State private var successHapticCount = 0
     @State private var warningHapticCount = 0
 
@@ -121,13 +129,14 @@ struct MainScreen: View {
         }
         .hintToast($hint)
         .sensoryFeedback(.impact(weight: .light), trigger: startHapticCount)
+        .sensoryFeedback(.impact(weight: .light), trigger: addSetHapticCount)
         .sensoryFeedback(.success, trigger: successHapticCount)
         .sensoryFeedback(.warning, trigger: warningHapticCount)
         // `initial: true` covers the relaunch case: the app comes back with an
         // exercise still in progress and no `start(_:)` ever runs, so the
         // prefill has to happen on the first pass as well (PLAN.md 3.15).
         .onChange(of: inProgress?.id, initial: true) { _, _ in
-            draft = pendingDraft ?? prefilledDraft(for: inProgress)
+            card = pendingDraft ?? CardDraft(fields: prefilledDraft(for: inProgress))
             pendingDraft = nil
             focus = nil
         }
@@ -286,9 +295,12 @@ struct MainScreen: View {
 
                 InProgressCard(
                     exercise: exercise,
-                    draft: $draft,
+                    draft: $card.fields,
+                    pendingSets: card.pending,
                     focus: $focus,
                     onPutBack: { putBack(exercise) },
+                    onAddSet: { addSet(exercise) },
+                    onRemovePendingSet: { removePendingSet($0) },
                     onFinalize: { set in finalize(exercise, with: set) }
                 )
                 .onLongPressGesture(minimumDuration: 0.4) { detailExercise = exercise }
@@ -414,14 +426,16 @@ struct MainScreen: View {
         switch result {
         case .started:
             startHapticCount += 1
-            // A draft kept when this exercise was put back comes back with it.
+            // A card kept when this exercise was put back comes back with it,
+            // pending sets and all.
             // It has to travel through `pendingDraft` as well, because the
-            // `onChange(of: inProgress?.id)` below resets `draft` afterwards.
+            // `onChange(of: inProgress?.id)` below resets `card` afterwards.
             // Otherwise the previous set is copied in, so "one more set of the
             // same" is a single tap on the checkmark.
-            let next = keptDrafts.removeValue(forKey: exercise.id) ?? prefilledDraft(for: exercise)
+            let next = keptDrafts.removeValue(forKey: exercise.id)
+                ?? CardDraft(fields: prefilledDraft(for: exercise))
             pendingDraft = next
-            draft = next
+            card = next
             focus = nil
             // The row only exists after this update, so scroll on the next turn.
             Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
@@ -431,27 +445,53 @@ struct MainScreen: View {
         }
     }
 
-    private func putBack(_ exercise: Exercise) {
+    /// The card's plus (PLAN.md "Multi-set executions"): the current fields
+    /// become set N of this execution and the list on the card grows, but
+    /// nothing is stored yet — the checkmark writes the whole execution.
+    ///
+    /// The fields are left exactly as they are: the next set of the same
+    /// exercise is usually the same numbers, so "3 × 40 kg × 10" is plus, plus,
+    /// checkmark without typing. Focus drops so the list is visible above the
+    /// keyboard and the just-added row is not hidden behind it.
+    private func addSet(_ exercise: Exercise) {
+        guard case .success(let set) = card.fields.validate(isUnilateral: exercise.isUnilateral) else { return }
+        withAnimation(.snappy) { card.pending.append(PendingSet(set: set)) }
         focus = nil
-        // Half-typed numbers survive the swap (PLAN.md section 2, "Drafts
-        // (changed)"); an untouched draft is not worth keeping — and since the
-        // draft now starts as a copy of the previous set, "untouched" means
-        // "still equal to the prefill", which would otherwise go stale if that
-        // entry were edited in the meantime.
-        if !draft.isEmpty, draft != prefilledDraft(for: exercise) {
-            keptDrafts[exercise.id] = draft
-        }
-        withAnimation(.snappy) { store.putBack(exercise) }
-        draft = SetDraft()
+        addSetHapticCount += 1
     }
 
+    /// The × on a pending row. Removal is by id, never by position: the row
+    /// numbers are display-only and shift as soon as one disappears.
+    private func removePendingSet(_ id: PendingSet.ID) {
+        withAnimation(.snappy) { card.pending.removeAll { $0.id == id } }
+    }
+
+    private func putBack(_ exercise: Exercise) {
+        focus = nil
+        // Half-typed numbers and committed sets survive the swap (PLAN.md
+        // section 2, "Drafts (changed)"); an untouched card is not worth keeping
+        // — and since the fields now start as a copy of the previous set,
+        // "untouched" means "still equal to the prefill", which would otherwise
+        // go stale if that entry were edited in the meantime. Pending sets are
+        // always worth keeping: they are work Marco actually did.
+        if !card.pending.isEmpty
+            || (!card.fields.isEmpty && card.fields != prefilledDraft(for: exercise)) {
+            keptDrafts[exercise.id] = card
+        }
+        withAnimation(.snappy) { store.putBack(exercise) }
+        card = CardDraft()
+    }
+
+    /// The checkmark: the fields are the last set, and pending + current are
+    /// written as ONE execution (one store write, one debounced backup).
     private func finalize(_ exercise: Exercise, with set: ValidatedSet) {
         let id = exercise.id
         focus = nil
         keptDrafts.removeValue(forKey: id)
-        withAnimation(.snappy) { _ = store.finalize(exercise, with: set) }
+        let sets = card.pending + [PendingSet(set: set)]
+        withAnimation(.snappy) { _ = store.finalize(exercise, with: sets) }
         successHapticCount += 1
-        draft = SetDraft()
+        card = CardDraft()
         flashExerciseID = id
         Task {
             try? await Task.sleep(for: .milliseconds(900))
@@ -459,10 +499,14 @@ struct MainScreen: View {
         }
     }
 
-    /// The draft an exercise starts with: its previous set, or empty when it has
-    /// never been performed. Replaces the old "Same as last time" button — the
-    /// values are simply there, ready to be stepped or overtyped, and because
-    /// they validate the checkmark is live at once.
+    /// The fields an exercise starts with: the peak set of its last execution,
+    /// or empty when it has never been performed. Replaces the old "Same as last
+    /// time" button — the values are simply there, ready to be stepped or
+    /// overtyped, and because they validate both card buttons are live at once.
+    ///
+    /// The peak (best estimated 1RM, PLAN.md "Multi-set executions") rather than
+    /// the chronologically last set: after three sets of 80 / 80 / 60 kg the
+    /// number to beat is 80, not the burn-out set.
     ///
     /// A unilateral exercise whose last entry predates the L/R switch has no
     /// `repsRight`; both sides then start from the bilateral reps.
@@ -481,8 +525,11 @@ struct MainScreen: View {
         switch result.outcome {
         case .startedInProgress:
             // The `@Query` may update before or after this callback, so set both.
-            pendingDraft = result.draft
-            draft = result.draft
+            // The add sheet's optional first set is a single set, so the new
+            // card starts with those fields and an empty pending list.
+            let next = CardDraft(fields: result.draft)
+            pendingDraft = next
+            card = next
             startHapticCount += 1
         case .logged:
             successHapticCount += 1

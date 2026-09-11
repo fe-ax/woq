@@ -16,6 +16,7 @@ struct ComponentGallery: View {
     @State private var checkmarkEnabled = true
     @State private var glassIsActive = false
     @State private var undoCount = 0
+    @State private var addedSetCount = 0
     @State private var hint: String?
     @FocusState private var focus: Field?
 
@@ -135,6 +136,12 @@ struct ComponentGallery: View {
     private var buttons: some View {
         section("Buttons") {
             HStack(spacing: 12) {
+                // The in-progress card's pair, in both states: punched plus
+                // (add a set, card stays) next to the solid checkmark (finish).
+                AddSetButton(isEnabled: checkmarkEnabled) {
+                    addedSetCount += 1
+                }
+                AddSetButton(isEnabled: false) {}
                 CheckmarkButton(isEnabled: checkmarkEnabled) {
                     checkmarkEnabled = false
                 }
@@ -146,6 +153,18 @@ struct ComponentGallery: View {
                     undoCount += 1
                     checkmarkEnabled = true
                 }
+                RoundIconButton(
+                    systemName: "xmark",
+                    diameter: 24,
+                    accessibilityLabel: String(localized: "Remove set 1")
+                ) {
+                    addedSetCount = max(0, addedSetCount - 1)
+                }
+            }
+
+            // Second row: six circles plus two labelled buttons do not fit on
+            // one 396 pt line.
+            HStack(spacing: 12) {
                 Button {
                     checkmarkEnabled.toggle()
                 } label: {
@@ -161,7 +180,7 @@ struct ComponentGallery: View {
                 .buttonStyle(.ink)
             }
 
-            Text(verbatim: "put back \(undoCount)x")
+            Text(verbatim: "add set \(addedSetCount)x \u{00B7} put back \(undoCount)x")
                 .font(Tokens.numberFont(.caption))
                 .foregroundStyle(Tokens.muted)
         }

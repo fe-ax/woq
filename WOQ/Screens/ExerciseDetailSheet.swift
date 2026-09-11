@@ -175,46 +175,105 @@ struct ExerciseDetailSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(Tokens.muted)
             } else {
-                ForEach(history) { entry in
-                    historyRow(entry)
+                ForEach(history) { execution in
+                    executionCard(execution)
                 }
             }
         }
     }
 
-    private func historyRow(_ entry: Entry) -> some View {
+    /// One card per execution: when it was finished, how many sets it holds and every set in
+    /// order with the peak marked. A one-set execution — every set logged before schema V2,
+    /// and every single-set session since — reads exactly the way the old per-set card did.
+    ///
+    /// Editing and deleting stay per set (PLAN.md section 2 "Detail"): the buttons act on the
+    /// `Entry` of their own row, and deleting the last set of an execution makes the whole
+    /// card disappear by itself, because an execution is only a grouping of the sets.
+    private func executionCard(_ execution: Execution) -> some View {
         OutlinedCard(padding: 8) {
-            HStack(spacing: 4) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Formatting.absoluteDateTimeString(entry.date))
-                        .font(Tokens.numberFont(.caption))
-                        .foregroundStyle(Tokens.muted)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(caption(for: execution))
+                    .font(Tokens.numberFont(.caption))
+                    .foregroundStyle(Tokens.muted)
 
-                    Text(Formatting.setString(for: entry))
-                        .font(Tokens.numberFont(.body, weight: .semibold))
-                        .foregroundStyle(Tokens.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .accessibilityElement(children: .combine)
-
-                Spacer(minLength: 8)
-
-                RoundIconButton(
-                    systemName: "pencil",
-                    accessibilityLabel: String(localized: "Edit set")
-                ) {
-                    editedEntry = entry
-                }
-
-                RoundIconButton(
-                    systemName: "trash",
-                    accessibilityLabel: String(localized: "Delete set")
-                ) {
-                    entryPendingDelete = entry
+                ForEach(Array(execution.sets.enumerated()), id: \.element.id) { index, entry in
+                    setRow(
+                        number: index + 1,
+                        entry: entry,
+                        isPeak: entry === execution.peak,
+                        showsPeakChip: execution.setCount > 1 && entry === execution.peak
+                    )
                 }
             }
         }
+    }
+
+    /// One set: its position in the execution, what was logged, the peak badge, edit, delete.
+    ///
+    /// The number comes from the position in `execution.sets`, not from `Entry.setIndex`, so
+    /// deleting the middle set of three leaves 1 and 2 rather than a gap.
+    ///
+    /// Everything left of the buttons is combined into a single VoiceOver element; the two
+    /// buttons stay separately reachable next to it.
+    private func setRow(number: Int, entry: Entry, isPeak: Bool, showsPeakChip: Bool) -> some View {
+        HStack(spacing: 4) {
+            HStack(spacing: 8) {
+                // Fixed width and trailing aligned so the set strings line up under each
+                // other whether the execution has 3 sets or 12.
+                Text(verbatim: "\(number)")
+                    .font(Tokens.numberFont(.caption))
+                    .foregroundStyle(Tokens.muted)
+                    .frame(width: 16, alignment: .trailing)
+
+                Text(Formatting.setString(for: entry))
+                    .font(Tokens.numberFont(.body, weight: isPeak ? .bold : .regular))
+                    .foregroundStyle(Tokens.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if showsPeakChip {
+                    peakChip
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(setLabel(number: number, entry: entry, isPeak: showsPeakChip))
+
+            Spacer(minLength: 4)
+
+            RoundIconButton(
+                systemName: "pencil",
+                accessibilityLabel: String(localized: "Edit set")
+            ) {
+                editedEntry = entry
+            }
+
+            RoundIconButton(
+                systemName: "trash",
+                accessibilityLabel: String(localized: "Delete set")
+            ) {
+                entryPendingDelete = entry
+            }
+        }
+    }
+
+    /// The blue "peak" badge. Only shown on an execution of several sets: on a single set
+    /// there is nothing to be the best of.
+    private var peakChip: some View {
+        Text(String(localized: "peak"))
+            .font(.system(.caption2, weight: .bold))
+            // Sits on a blue fill, which stays pastel in both appearances.
+            .foregroundStyle(Tokens.inkOnPastel)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
+                    .fill(Tokens.blue)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
+                    .strokeBorder(Tokens.ink, lineWidth: Tokens.hairline)
+            )
+            .accessibilityLabel(String(localized: "Peak set"))
     }
 
     private var deleteButton: some View {
@@ -239,9 +298,27 @@ struct ExerciseDetailSheet: View {
 
     // MARK: - Derived
 
-    /// Newest first (PLAN.md section 6).
-    private var history: [Entry] {
-        exercise.entries.sorted { $0.date > $1.date }
+    /// Every logging event, newest first (PLAN.md section 6): the sets are already grouped
+    /// by `Entry.executionKey` and the best set of each group is picked by the model
+    /// (PLAN.md section 2 "Peak rule" — best estimated 1RM by Epley, ties to the earlier set).
+    private var history: [Execution] {
+        exercise.executions
+    }
+
+    /// "5 Sep 2026 at 09:41" for a single set, "5 Sep 2026 at 09:41 \u{00B7} 3 sets" when
+    /// several sets were logged in one go — the same separator as `Formatting.executionString`.
+    private func caption(for execution: Execution) -> String {
+        let stamp = Formatting.absoluteDateTimeString(execution.date)
+        guard execution.setCount > 1 else { return stamp }
+        return "\(stamp) \u{00B7} \(Formatting.setCountString(execution.setCount))"
+    }
+
+    /// One VoiceOver sentence per set: "Set 2, 40 kg \u{00D7} 10, peak".
+    private func setLabel(number: Int, entry: Entry, isPeak: Bool) -> String {
+        let set = Formatting.setString(for: entry)
+        return isPeak
+            ? String(localized: "Set \(number), \(set), peak")
+            : String(localized: "Set \(number), \(set)")
     }
 
     private func muscleNames(for intensity: Intensity) -> String {

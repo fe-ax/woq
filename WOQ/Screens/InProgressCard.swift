@@ -16,6 +16,17 @@ import UIKit
 /// one tap. That made "Same as last time" redundant, so it is gone; the previous
 /// set now reads as one muted line under the exercise name. The fields shrank to
 /// fit on one row together with the checkmark.
+///
+/// Revision 2026-09-12 (PLAN.md "Multi-set executions"): one visit to the card
+/// can log several sets. The punched plus next to the checkmark commits the
+/// current fields as set N and leaves the numbers in place for set N+1; the
+/// committed sets are listed above the fields, each with a small × that takes it
+/// back. The checkmark takes the fields as the last set and hands the whole list
+/// to `MainScreen`, which writes it as ONE execution — so a session is one store
+/// write and one debounced backup, and the pending list is view state that a
+/// put-back keeps and a quit loses (same rule as the fields, PLAN.md 3.4/3.6).
+/// The card's muted line and the queue rows therefore show the execution's peak
+/// plus its set count ("3 days ago · 80 kg × 10 · 3 sets").
 struct InProgressCard: View {
     /// Focus chain for the keyboard toolbar (PLAN.md pitfall 5). The `Done` /
     /// `Next` toolbar lives in `MainScreen`, which owns the `@FocusState`.
@@ -27,8 +38,16 @@ struct InProgressCard: View {
 
     var exercise: Exercise
     @Binding var draft: SetDraft
+    /// Sets already committed with the plus, in the order they were logged.
+    /// Owned by `MainScreen` (`CardDraft.pending`); this view only lists them.
+    var pendingSets: [PendingSet]
     var focus: FocusState<Field?>.Binding
     var onPutBack: () -> Void
+    /// The fields validate and the plus was tapped: `MainScreen` turns the
+    /// current `draft` into a `PendingSet` (the card never builds one itself, so
+    /// the draft stays the single source of truth for the fields).
+    var onAddSet: () -> Void
+    var onRemovePendingSet: (PendingSet.ID) -> Void
     var onFinalize: (ValidatedSet) -> Void
 
     var body: some View {
@@ -48,6 +67,11 @@ struct InProgressCard: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
+
+            if !pendingSets.isEmpty {
+                pendingList
+            }
+
             fieldsRow
 
             if let problem = weightProblemText {
@@ -112,13 +136,71 @@ struct InProgressCard: View {
         }
     }
 
-    /// Bilateral: `[Weight kg] [Reps] [✓]` on one row.
+    /// The sets committed with the plus so far, newest at the bottom: the list
+    /// grows downwards towards the fields the next set is typed in.
     ///
-    /// Unilateral needs three fields, and three do not fit next to the
-    /// checkmark: the card is 428 − 32 (screen padding) − 28 (lane) − 24 (card
-    /// padding) = 344 pt wide, while 134 + 100 + 100 + 36 plus three 10 pt gaps
-    /// is 400 pt. So the shared weight keeps the checkmark company on the first
-    /// row and Reps L / Reps R sit underneath.
+    /// Numbering is by position, not by any stored index — removing set 1 of
+    /// three renumbers the rest, exactly like the detail sheet will after the
+    /// execution is written. `ForEach` is keyed on `PendingSet.id` (a fresh UUID
+    /// per row) so two identical sets stay two rows.
+    private var pendingList: some View {
+        VStack(spacing: 6) {
+            ForEach(Array(pendingSets.enumerated()), id: \.element.id) { index, pending in
+                pendingRow(number: index + 1, pending: pending)
+            }
+        }
+    }
+
+    private func pendingRow(number: Int, pending: PendingSet) -> some View {
+        let numberText = "\(number)"
+        let setText = Formatting.setString(
+            weightHalfKilos: pending.set.weightHalfKilos,
+            reps: pending.set.reps,
+            repsRight: pending.set.repsRight
+        )
+
+        return HStack(spacing: 8) {
+            // Fixed, trailing-aligned width so "1" and "10" share a right edge
+            // and the set strings stay in one column.
+            Text(numberText)
+                .font(Tokens.numberFont(.subheadline))
+                .foregroundStyle(Tokens.muted)
+                .frame(width: 16, alignment: .trailing)
+
+            Text(setText)
+                .font(Tokens.numberFont(.subheadline))
+                .foregroundStyle(Tokens.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 0)
+
+            RoundIconButton(
+                systemName: "xmark",
+                diameter: 24,
+                accessibilityLabel: String(localized: "Remove set \(numberText)")
+            ) {
+                onRemovePendingSet(pending.id)
+            }
+        }
+        // One element per set: VoiceOver should hear "Set 1, 40 kg × 10" and
+        // reach the × as an action, not as a separate unlabelled stop.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Set \(numberText), \(setText)"))
+        .accessibilityAction(named: Text(String(localized: "Remove"))) {
+            onRemovePendingSet(pending.id)
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    /// Bilateral: `[Weight kg] [Reps] [+] [✓]` on one row — 134 + 100 + 36 + 36
+    /// plus the 10 / 8 / 10 pt gaps is 334 pt of the card's 344 pt.
+    ///
+    /// Unilateral needs three fields, and three do not fit next to the buttons:
+    /// the card is 428 − 32 (screen padding) − 28 (lane) − 24 (card padding) =
+    /// 344 pt wide, while 134 + 100 + 100 + 36 plus three 10 pt gaps is 400 pt.
+    /// So the shared weight keeps the buttons company on the first row and
+    /// Reps L / Reps R sit underneath.
     @ViewBuilder
     private var fieldsRow: some View {
         if exercise.isUnilateral {
@@ -126,7 +208,7 @@ struct InProgressCard: View {
                 HStack(alignment: .bottom, spacing: 10) {
                     weightField
                     Spacer(minLength: 0)
-                    checkmark
+                    actionButtons
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     repsLeftField
@@ -139,20 +221,39 @@ struct InProgressCard: View {
                 weightField
                 repsLeftField
                 Spacer(minLength: 0)
-                checkmark
+                actionButtons
             }
         }
     }
 
-    /// Bottom-aligned with the 44 pt input boxes and nudged up by (44 − 36) / 2,
-    /// so the circle is centred on the boxes and not on the boxes plus their
-    /// caption labels.
+    /// `[+] [✓]`: add this set and stay, or add this set and finish. 8 pt apart
+    /// (closer than the 10 pt field gaps, so they read as one pair), bottom-
+    /// aligned with the 44 pt input boxes and nudged up by (44 − 36) / 2 so the
+    /// circles are centred on the boxes and not on the boxes plus their caption
+    /// labels.
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            addSetButton
+            checkmark
+        }
+        .padding(.bottom, (CompactStepperField<Field>.boxHeight - 36) / 2)
+    }
+
+    /// Commits the fields as a pending set. Validated here as well as in
+    /// `MainScreen` — the button is disabled while the draft is incomplete, but
+    /// the guard keeps the two paths (plus and checkmark) symmetrical.
+    private var addSetButton: some View {
+        AddSetButton(isEnabled: isValid) {
+            guard case .success = draft.validate(isUnilateral: exercise.isUnilateral) else { return }
+            onAddSet()
+        }
+    }
+
     private var checkmark: some View {
         CheckmarkButton(isEnabled: isValid) {
             guard case .success(let set) = draft.validate(isUnilateral: exercise.isUnilateral) else { return }
             onFinalize(set)
         }
-        .padding(.bottom, (CompactStepperField<Field>.boxHeight - 36) / 2)
     }
 
     // MARK: - Fields
@@ -209,17 +310,21 @@ struct InProgressCard: View {
         return "\(when) \u{00B7} \(Formatting.executionString(peak: execution.peak, setCount: execution.setCount))"
     }
 
-    /// "Bench press, in progress, last set 3 days ago, 40 kg × 10" — the card's
-    /// state and the numbers the fields start from, spoken before the fields.
+    /// "Bench press, in progress, last time 3 days ago, 80 kg × 10, 3 sets" —
+    /// the card's state and the numbers the fields start from, spoken before the
+    /// fields. Same content as `lastSetLine`, but with commas instead of the
+    /// middle dot, which VoiceOver reads as "middle dot".
     private var accessibilityTitle: String {
         let name = exercise.isUnilateral
             ? String(localized: "\(exercise.name), in progress, left and right separately")
             : String(localized: "\(exercise.name), in progress")
-        guard let entry = exercise.lastExecution?.peak else {
+        guard let execution = exercise.lastExecution else {
             return String(localized: "\(name), first time")
         }
-        let when = Formatting.relativeDayString(from: entry.date)
-        return String(localized: "\(name), last set \(when), \(Formatting.setString(for: entry))")
+        let when = Formatting.relativeDayString(from: execution.date)
+        let set = Formatting.setString(for: execution.peak)
+        let count = Formatting.setCountString(execution.setCount)
+        return String(localized: "\(name), last time \(when), \(set), \(count)")
     }
 
     private var isValid: Bool {
