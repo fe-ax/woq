@@ -10,3 +10,5 @@ xcuserdata/
 # Scratch
 *.log
 WOQ/App/Info.plist
+# Claude Code agent worktrees
+.claude/worktrees/
