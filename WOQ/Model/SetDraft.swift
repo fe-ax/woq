@@ -127,7 +127,12 @@ nonisolated struct SetDraft: Equatable, Sendable {
     static func parseWeight(_ raw: String) -> Result<Int?, DraftProblem> {
         let text = normalised(raw)
         guard !text.isEmpty else { return .success(nil) }
-        guard let decimal = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")),
+        // `Decimal(string:)` parses a PREFIX ("40kg" -> 40, "--" -> 0), so the shape is
+        // checked first: digits with at most one decimal point, nothing else (found by the
+        // first test suite, 2026-09-12). The decimal pad cannot type anything else, but a
+        // paste can.
+        guard isPlainDecimal(text),
+              let decimal = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")),
               decimal.isFinite
         else { return .failure(.weightNotANumber) }
 
@@ -141,6 +146,26 @@ nonisolated struct SetDraft: Equatable, Sendable {
             return .failure(.weightOutOfRange)
         }
         return .success(halfKilos)
+    }
+
+    /// "40", "40.", "40.5", ".5", "-5": an optional leading "-", ASCII digits with at most one
+    /// "." and at least one digit. No exponent, no second point, no letters. A negative number
+    /// is well formed and then fails the RANGE check, which is the more honest message.
+    static func isPlainDecimal(_ text: String) -> Bool {
+        var sawDigit = false
+        var sawPoint = false
+        for (offset, character) in text.enumerated() {
+            if character.isASCII, character.isNumber {
+                sawDigit = true
+            } else if character == "." && !sawPoint {
+                sawPoint = true
+            } else if character == "-" && offset == 0 {
+                continue
+            } else {
+                return false
+            }
+        }
+        return sawDigit
     }
 
     /// Reps must be a plain integer in 1...999.

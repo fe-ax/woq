@@ -60,14 +60,10 @@ struct SetDraftTests {
         #expect(SetDraft.parseWeight("inf") == .failure(.weightNotANumber))
     }
 
-    // `Decimal(string:)` parses a PREFIX and yields 0 for a lone sign, so "40kg" reads as
-    // 40 kg and "--" as 0 kg (which then fails as out of range rather than as "not a number").
-    // Unreachable with the decimal pad, reachable by pasting. Left failing on purpose so the
-    // looseness is visible rather than frozen into an assertion.
-    @Test(
-        "trailing junk after a number is rejected",
-        .disabled("bug: Decimal(string:) prefix-parses, so parseWeight(\"40kg\") succeeds as 40 kg")
-    )
+    // `Decimal(string:)` parses a PREFIX and yields 0 for a lone sign, so without the shape
+    // check in `SetDraft.isPlainDecimal` "40kg" read as 40 kg and "--" as 0 kg (fixed
+    // 2026-09-12, found by this suite). Unreachable with the decimal pad, reachable by pasting.
+    @Test("trailing junk after a number is rejected")
     func junkAfterTheNumber() {
         #expect(SetDraft.parseWeight("40kg") == .failure(.weightNotANumber))
         #expect(SetDraft.parseWeight("4.5.6") == .failure(.weightNotANumber))

@@ -307,18 +307,14 @@ struct InProgressRulesTests {
         #expect(exercise.executions.count == 1)
         #expect(exercise.lastExecution?.setCount == 3)
         #expect(exercise.lastExecution?.date == execution.date)
-        // What the code actually writes: the newest SET date, not the stamp finalize left.
-        #expect(exercise.lastPerformedAt == execution.date)
+        // The checkmark stamp `finalize` left stays; the new set's date is not later than it.
+        #expect(exercise.lastPerformedAt == Fixture.date(day: 2, second: 200))
     }
 
-    // `addSet` recomputes `lastPerformedAt = entries.map(\.date).max()`, while `finalize`
-    // stamped it with the CHECKMARK time (`max(date, last set date)`). Adding a set to a past
-    // execution therefore pulls the date back to the last set — sub-second in normal use, but
-    // the method's doc comment claims `lastPerformedAt` does not move at all.
-    @Test(
-        "adding a set does not move lastPerformedAt",
-        .disabled("bug: addSet recomputes lastPerformedAt from the set dates and loses finalize's checkmark stamp")
-    )
+    // `finalize` stamps `lastPerformedAt` with the CHECKMARK time (`max(date, last set date)`);
+    // `addSet` must not pull it back to the last set's own date (it did at first, found by this
+    // test on 2026-09-12; now `max(existing, new set date)`).
+    @Test("adding a set does not move lastPerformedAt")
     func addSetKeepsLastPerformedAt() throws {
         let (container, store) = try makeStore()
         let exercise = Fixture.exercise("Bench press", in: container.mainContext)
