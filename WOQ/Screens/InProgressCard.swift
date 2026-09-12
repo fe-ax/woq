@@ -42,8 +42,11 @@ struct InProgressCard: View {
 
     /// Space in front of the pending rows and the fields row that the set branch
     /// runs in (PLAN.md section 2, "Set branch"): the 12 pt nodes take its first
-    /// 12 pt, the stripe runs down their centre. Only reserved while there are
-    /// pending sets — without a branch the rows use the full card width.
+    /// 12 pt, the stripe runs down their centre. Always reserved: the branch is
+    /// visible from the moment the exercise is in progress (Marco's phone
+    /// feedback, 2026-09-12 — at first it only appeared with the first pending
+    /// set, and the fields slid aside for it), with the dashed node on the
+    /// fields row as its only node until the first plus.
     static let branchGutter: CGFloat = 16
 
     /// x of the branch stripe in the in-progress *section*'s coordinates: the
@@ -91,32 +94,23 @@ struct InProgressCard: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
 
-            if hasBranch {
+            if !pendingSets.isEmpty {
                 pendingList
             }
 
             fieldsRow
-                .padding(.leading, branchInset)
+                .padding(.leading, Self.branchGutter)
 
             if let problem = weightProblemText {
                 Text(problem)
                     .font(.caption)
                     .foregroundStyle(Tokens.danger)
                     .accessibilityAddTraits(.isStaticText)
-                    .padding(.leading, branchInset)
+                    .padding(.leading, Self.branchGutter)
             }
         }
         .padding(Tokens.cardPadding)
     }
-
-    /// The branch only exists once a set has been committed with the plus, so an
-    /// exercise logged in one go never grows a gutter.
-    private var hasBranch: Bool { !pendingSets.isEmpty }
-
-    /// `MainScreen` wraps append / remove in `withAnimation(.snappy)`, so the
-    /// rows slide 16 pt right as the branch forks and back when its last set is
-    /// taken away. That movement is the point: the fields step aside for the lane.
-    private var branchInset: CGFloat { hasBranch ? Self.branchGutter : 0 }
 
     private var headerRow: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -229,7 +223,7 @@ struct InProgressCard: View {
             onRemovePendingSet(pending.id)
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
-        .padding(.leading, branchInset)
+        .padding(.leading, Self.branchGutter)
         // The overlay puts this set's node on the row's vertical centre.
         .setBranchAnchor(.set(pending.id))
     }

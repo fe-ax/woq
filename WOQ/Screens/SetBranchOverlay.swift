@@ -8,7 +8,10 @@ import SwiftUI
 // stripe forks off the blue in-progress node, carries one outlined node per
 // pending set and a dashed node on the fields row (the set being typed), and
 // merges back into the blue lane at the bottom of the section, where the lane
-// runs on through the QUEUE rule into the yellow queue lane.
+// runs on through the QUEUE rule into the yellow queue lane. It is there from
+// the first frame of the card: with nothing committed yet the fork runs straight
+// to the dashed node and merges back (phone feedback 2026-09-12 — showing it
+// only from the first plus read as "the branch starts at set two").
 
 /// Which row of the in-progress card a `SetBranchAnchor` came from.
 nonisolated enum SetBranchAnchorKind: Equatable {
@@ -104,8 +107,8 @@ private struct SetBranchShape: View {
             .accessibilityHidden(true)
         }
         // The rows animate with `.snappy` (MainScreen wraps append / remove in
-        // it); the anchors follow those positions by themselves, so this only
-        // has to cover the appearance of the branch with the first set.
+        // it) and the anchors follow those positions by themselves; the count
+        // animation only smooths the redraw when a row comes or goes.
         .animation(.snappy, value: anchors.count)
     }
 
@@ -120,8 +123,8 @@ private struct SetBranchShape: View {
         var lastY: CGFloat
     }
 
-    /// `nil` (draw nothing) until the first pending set exists: an exercise with
-    /// no committed sets is today's card, no branch.
+    /// `nil` (draw nothing) only while no row has reported yet — the first layout
+    /// pass. From then on the fields row alone is enough for a branch.
     private func layout(proxy: GeometryProxy, height: CGFloat) -> Layout? {
         var setYs: [CGFloat] = []
         var currentY: CGFloat?
@@ -138,13 +141,13 @@ private struct SetBranchShape: View {
             }
         }
 
-        guard !setYs.isEmpty else { return nil }
+        guard let lastY = currentY ?? setYs.max() else { return nil }
         setYs.sort()
         return Layout(
             setNodeYs: setYs,
             currentNodeY: currentY,
             sectionHeight: height,
-            lastY: currentY ?? setYs[setYs.count - 1]
+            lastY: lastY
         )
     }
 
@@ -155,7 +158,9 @@ private struct SetBranchShape: View {
     /// a branch leaves or rejoins a lane.
     private func branchPath(_ layout: Layout) -> Path {
         var path = Path()
-        let firstY = layout.setNodeYs[0]
+        // With no pending set the fork lands on the dashed node directly and
+        // the straight run has zero length.
+        let firstY = layout.setNodeYs.first ?? layout.lastY
 
         path.move(to: forkFrom)
         let forkMid = (forkFrom.y + firstY) / 2
