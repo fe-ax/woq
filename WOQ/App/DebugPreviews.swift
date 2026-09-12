@@ -89,7 +89,7 @@ struct DebugPreviewRoot: View {
 
     private func placeholder(_ text: String) -> some View {
         Text(text)
-            .font(.body)
+            .appFont(.body)
             .foregroundStyle(Tokens.muted)
             .multilineTextAlignment(.center)
             .padding(24)

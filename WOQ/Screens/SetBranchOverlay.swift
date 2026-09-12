@@ -12,6 +12,14 @@ import SwiftUI
 // the first frame of the card: with nothing committed yet the fork runs straight
 // to the dashed node and merges back (phone feedback 2026-09-12 — showing it
 // only from the first plus read as "the branch starts at set two").
+//
+// Gradients (PLAN.md section 2, "Gradients", 2026-09-12): the graph should read
+// as one flow, so no colour on it changes with a hard cut any more. The fork leg
+// blends `Tokens.blue` -> `Tokens.red` along its length and the merge leg
+// `Tokens.red` -> `Tokens.blue`, so the branch visibly grows out of the blue
+// lane and dissolves back into it; only the straight run between the nodes is
+// solid red. The ink line stays one solid black line over all three legs — the
+// line is the graph, the colour only says which lane you are on.
 
 /// Which row of the in-progress card a `SetBranchAnchor` came from.
 nonisolated enum SetBranchAnchorKind: Equatable {
@@ -88,11 +96,36 @@ private struct SetBranchShape: View {
             Canvas(opaque: false, rendersAsynchronously: false) { context, size in
                 guard let layout = layout(proxy: proxy, height: size.height) else { return }
 
-                let path = branchPath(layout)
+                let legs = branchLegs(layout)
                 // Same build-up as the lane column: pastel stripe first, ink
-                // connector on top.
-                context.stroke(path, with: .color(Tokens.red), style: stripeStyle(Tokens.laneStripe))
-                context.stroke(path, with: .color(Tokens.ink), style: stripeStyle(Tokens.line))
+                // connector on top — but the stripe goes down in three passes so
+                // the colour can travel from the blue lane into the red branch
+                // and back. Dynamic `Color`s resolve per appearance inside a
+                // `Canvas` (PLAN.md pitfall 15) and that holds for the colours of
+                // a `Gradient` too, verified in dark mode 2026-09-12, so the
+                // light/dark token pairs need no manual `resolve(in:)`.
+                context.stroke(
+                    legs.fork.path,
+                    with: .linearGradient(
+                        Gradient(colors: [Tokens.blue, Tokens.red]),
+                        startPoint: legs.fork.start,
+                        endPoint: legs.fork.end
+                    ),
+                    style: stripeStyle(Tokens.laneStripe)
+                )
+                if let run = legs.run {
+                    context.stroke(run, with: .color(Tokens.red), style: stripeStyle(Tokens.laneStripe))
+                }
+                context.stroke(
+                    legs.merge.path,
+                    with: .linearGradient(
+                        Gradient(colors: [Tokens.red, Tokens.blue]),
+                        startPoint: legs.merge.start,
+                        endPoint: legs.merge.end
+                    ),
+                    style: stripeStyle(Tokens.laneStripe)
+                )
+                context.stroke(legs.whole, with: .color(Tokens.ink), style: stripeStyle(Tokens.line))
 
                 for y in layout.setNodeYs {
                     node(in: &context, y: y, dashed: false)
@@ -151,40 +184,84 @@ private struct SetBranchShape: View {
         )
     }
 
+    /// One leg of the branch together with the axis its gradient runs along:
+    /// the straight line from where the leg starts to where it ends, which is
+    /// the chord of the S-curve, so the blend follows the leg's direction.
+    private struct Leg {
+        var path: Path
+        var start: CGPoint
+        var end: CGPoint
+    }
+
+    /// The branch cut into the three pieces the stripe is painted in.
+    private struct Legs {
+        var fork: Leg
+        /// `nil` when the fork lands straight on the last node (no pending set
+        /// yet): the run would be zero length, and a zero-length gradient axis
+        /// is undefined. Nothing is lost — the fork already ends on that node.
+        var run: Path?
+        var merge: Leg
+        /// Fork + run + merge in one path, for the single solid ink line.
+        var whole: Path
+    }
+
     /// Fork, straight run through the nodes, merge.
     ///
     /// Both curves are cubics with their control points on the same y (the
     /// midpoint of the leg), which gives the symmetric S a git graph draws when
     /// a branch leaves or rejoins a lane.
-    private func branchPath(_ layout: Layout) -> Path {
-        var path = Path()
+    ///
+    /// They are separate subpaths so each can take its own shading. The fork
+    /// ends and the run starts on the same point with the same (vertical)
+    /// tangent, so the butt caps of the two strokes meet without a seam.
+    private func branchLegs(_ layout: Layout) -> Legs {
         // With no pending set the fork lands on the dashed node directly and
         // the straight run has zero length.
         let firstY = layout.setNodeYs.first ?? layout.lastY
+        let forkEnd = CGPoint(x: branchX, y: firstY)
 
-        path.move(to: forkFrom)
+        var fork = Path()
+        fork.move(to: forkFrom)
         let forkMid = (forkFrom.y + firstY) / 2
-        path.addCurve(
-            to: CGPoint(x: branchX, y: firstY),
+        fork.addCurve(
+            to: forkEnd,
             control1: CGPoint(x: forkFrom.x, y: forkMid),
             control2: CGPoint(x: branchX, y: forkMid)
         )
 
-        path.addLine(to: CGPoint(x: branchX, y: layout.lastY))
+        var run: Path?
+        if layout.lastY > firstY {
+            var line = Path()
+            line.move(to: forkEnd)
+            line.addLine(to: CGPoint(x: branchX, y: layout.lastY))
+            run = line
+        }
 
         // Out of the bottom of the last node and back to the lane, ending
         // exactly on the section's bottom edge where the blue lane continues
-        // (the separator's bridge takes over from there).
+        // (the separator's bridge takes over from there — and takes over in
+        // blue, so the two gradients meet on the same colour).
         let mergeStart = CGPoint(x: branchX, y: layout.lastY + Tokens.node / 2)
+        let mergeEnd = CGPoint(x: forkFrom.x, y: layout.sectionHeight)
         let mergeMid = (mergeStart.y + layout.sectionHeight) / 2
-        path.move(to: mergeStart)
-        path.addCurve(
-            to: CGPoint(x: forkFrom.x, y: layout.sectionHeight),
+        var merge = Path()
+        merge.move(to: mergeStart)
+        merge.addCurve(
+            to: mergeEnd,
             control1: CGPoint(x: branchX, y: mergeMid),
             control2: CGPoint(x: forkFrom.x, y: mergeMid)
         )
 
-        return path
+        var whole = fork
+        if let run { whole.addPath(run) }
+        whole.addPath(merge)
+
+        return Legs(
+            fork: Leg(path: fork, start: forkFrom, end: forkEnd),
+            run: run,
+            merge: Leg(path: merge, start: mergeStart, end: mergeEnd),
+            whole: whole
+        )
     }
 
     private func stripeStyle(_ width: CGFloat) -> StrokeStyle {

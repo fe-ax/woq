@@ -14,13 +14,13 @@ struct MenuRow: View {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(.body, weight: .semibold))
+                            .appFont(.body, weight: .semibold)
                             .foregroundStyle(Tokens.ink)
 
                         // The backup summary carries a clock time, so monospaced
                         // digits like every other number in the app.
                         Text(subtitle)
-                            .font(Tokens.numberFont(.caption))
+                            .appNumberFont(.caption)
                             .foregroundStyle(Tokens.muted)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -54,17 +54,17 @@ struct MenuActionRow: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(.body, weight: .semibold))
+                        .appFont(.body, weight: .semibold)
                         .foregroundStyle(Tokens.ink)
 
                     Text(subtitle)
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(Tokens.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let detail {
                         Text(detail)
-                            .font(.caption)
+                            .appFont(.caption)
                             .foregroundStyle(Tokens.danger)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -92,7 +92,7 @@ struct MenuSectionTitle: View {
 
     var body: some View {
         Text(text)
-            .font(.system(.body, weight: .semibold))
+            .appFont(.body, weight: .semibold)
             .foregroundStyle(Tokens.ink)
     }
 }
@@ -107,7 +107,7 @@ struct MenuCaption: View {
 
     var body: some View {
         Text(text)
-            .font(.caption)
+            .appFont(.caption)
             .foregroundStyle(Tokens.muted)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)

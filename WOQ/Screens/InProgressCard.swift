@@ -103,7 +103,7 @@ struct InProgressCard: View {
 
             if let problem = weightProblemText {
                 Text(problem)
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(Tokens.danger)
                     .accessibilityAddTraits(.isStaticText)
                     .padding(.leading, Self.branchGutter)
@@ -122,13 +122,13 @@ struct InProgressCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(exercise.name)
-                        .font(.headline)
+                        .appFont(.headline)
                         .foregroundStyle(Tokens.ink)
                         .lineLimit(2)
 
                     if exercise.isUnilateral {
                         Text(String(localized: "L/R"))
-                            .font(.caption)
+                            .appFont(.caption)
                             .foregroundStyle(Tokens.ink)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -142,7 +142,7 @@ struct InProgressCard: View {
                 // What the fields are prefilled with, so the numbers in the
                 // boxes have a visible origin: "3 days ago · 40 kg × 10".
                 Text(lastSetLine)
-                    .font(Tokens.numberFont(.subheadline))
+                    .appNumberFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -191,7 +191,7 @@ struct InProgressCard: View {
             // Fixed, trailing-aligned width so "1" and "10" share a right edge
             // and the set strings stay in one column.
             Text(numberText)
-                .font(Tokens.numberFont(.subheadline))
+                .appNumberFont(.subheadline)
                 .foregroundStyle(Tokens.muted)
                 .frame(width: 16, alignment: .trailing)
 
@@ -201,7 +201,7 @@ struct InProgressCard: View {
             // smaller than its siblings (seen with three pending sets). The
             // set string is short and the row has ~250 pt for it.
             Text(setText)
-                .font(Tokens.numberFont(.subheadline))
+                .appNumberFont(.subheadline)
                 .foregroundStyle(Tokens.ink)
                 .lineLimit(1)
 
@@ -446,7 +446,7 @@ private struct CompactStepperField<Field: Hashable>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
 
             HStack(spacing: 0) {
@@ -457,7 +457,7 @@ private struct CompactStepperField<Field: Hashable>: View {
                 )
 
                 TextField("", text: $text)
-                    .font(Tokens.numberFont(.body))
+                    .appNumberFont(.body)
                     .multilineTextAlignment(.center)
                     .keyboardType(keyboard)
                     .textInputAutocapitalization(.never)
@@ -470,7 +470,7 @@ private struct CompactStepperField<Field: Hashable>: View {
 
                 if let unit {
                     Text(unit)
-                        .font(.subheadline)
+                        .appFont(.subheadline)
                         .foregroundStyle(Tokens.muted)
                         .padding(.trailing, 2)
                         .accessibilityHidden(true)

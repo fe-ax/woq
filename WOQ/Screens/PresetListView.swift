@@ -40,7 +40,7 @@ struct PresetListView: View {
 
         if !presets.isEmpty {
             Text(category.displayName)
-                .font(.system(.headline, weight: .bold))
+                .appFont(.headline, weight: .bold)
                 .foregroundStyle(Tokens.ink)
                 .padding(.top, category == ExercisePreset.Category.allCases.first ? 0 : 20)
                 .padding(.bottom, 2)
@@ -69,7 +69,7 @@ struct PresetListView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(preset.name)
-                            .font(.body)
+                            .appFont(.body)
                             .foregroundStyle(Tokens.ink)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -80,7 +80,7 @@ struct PresetListView: View {
                     }
 
                     Text(preset.primaryMuscleSummary)
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(Tokens.muted)
                         .lineLimit(1)
                         .multilineTextAlignment(.leading)
@@ -90,7 +90,7 @@ struct PresetListView: View {
 
                 if isTaken {
                     Text(String(localized: "Added"))
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(Tokens.muted)
                 } else {
                     checkbox(isSelected: isSelected)
@@ -133,7 +133,7 @@ struct PresetListView: View {
     /// Same badge as the detail sheet, one size down.
     private var unilateralBadge: some View {
         Text(String(localized: "L/R"))
-            .font(.system(size: 10, weight: .bold))
+            .appFont(size: 10, weight: .bold)
             // Sits on a blue fill, which stays pastel in both appearances.
             .foregroundStyle(Tokens.inkOnPastel)
             .padding(.horizontal, 5)

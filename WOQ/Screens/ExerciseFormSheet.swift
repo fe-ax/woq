@@ -243,11 +243,11 @@ struct ExerciseFormSheet: View {
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(String(localized: "Name"))
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
 
             TextField("", text: $name)
-                .font(.body)
+                .appFont(.body)
                 .foregroundStyle(Tokens.ink)
                 .tint(Tokens.ink)
                 .textInputAutocapitalization(.words)
@@ -268,7 +268,7 @@ struct ExerciseFormSheet: View {
 
             if isDuplicateName {
                 Text(String(localized: "An exercise with this name already exists"))
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(Tokens.danger)
             }
         }
@@ -277,12 +277,12 @@ struct ExerciseFormSheet: View {
     private var unilateralToggle: some View {
         VStack(alignment: .leading, spacing: 4) {
             Toggle(String(localized: "Left and right separately"), isOn: $isUnilateral)
-                .font(.body)
+                .appFont(.body)
                 .foregroundStyle(Tokens.ink)
                 .tint(Tokens.ink)
 
             Text(String(localized: "Log reps for each side, shared weight"))
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }
@@ -340,19 +340,19 @@ struct ExerciseFormSheet: View {
 
             if let weightProblem {
                 Text(SetFieldHint.text(for: weightProblem))
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(Tokens.danger)
             }
 
             Text(String(localized: "Fill in a set to log it now; leave empty to start the exercise"))
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .font(.system(.headline, weight: .bold))
+            .appFont(.headline, weight: .bold)
             .foregroundStyle(Tokens.ink)
     }
 

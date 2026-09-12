@@ -108,18 +108,11 @@ nonisolated enum Tokens {
 
     // MARK: - Fonts
 
-    /// Header title, SF Pro bold 28.
-    static let titleFont = Font.system(size: 28, weight: .bold)
-
-    /// A text style with monospaced digits, for anything containing numbers.
-    static func numberFont(_ style: Font.TextStyle, weight: Font.Weight = .regular) -> Font {
-        Font.system(style, design: .default, weight: weight).monospacedDigit()
-    }
-
-    /// A fixed-size font with monospaced digits.
-    static func numberFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        Font.system(size: size, weight: weight).monospacedDigit()
-    }
+    // Fonts moved to WOQ/Design/AppFont.swift (Menu > Appearance > Font, 2026-09-12):
+    // text uses `.appFont(_:weight:)`, `.appNumberFont(_:weight:)` and
+    // `.appTitleFont()`, which read the chosen typeface from the environment.
+    // `Tokens.titleFont` / `Tokens.numberFont(...)` were hard-wired to SF Pro and
+    // would have ignored the setting, so they are gone.
 }
 
 extension Color {

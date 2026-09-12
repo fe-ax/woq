@@ -118,6 +118,14 @@ struct LaneColumn: View {
 /// drawn on that side — a yellow stub under the rule with no row below it would
 /// be a lane to nowhere.
 ///
+/// With both lanes there the bridge is ONE stripe over the full height with a
+/// vertical `bridgeTop` -> `bridgeBottom` gradient (PLAN.md section 2,
+/// "Gradients", 2026-09-12): blue becomes yellow gradually across the rule
+/// instead of switching at it, which is how the set branch already leaves and
+/// rejoins the lane. With one lane only there is nothing to blend into, so that
+/// side keeps its solid stub ending at the rule. The ink connector and the ink
+/// rule are untouched — the black line never blends.
+///
 /// The separator owns its own vertical breathing room so the bridge can cover
 /// it; a `.padding(.vertical, 6)` at the call site would leave a 12 pt gap in
 /// the lane.
@@ -140,8 +148,7 @@ struct LaneSeparator: View {
                 .frame(height: Tokens.line)
 
             Text(String(localized: "QUEUE"))
-                .font(.caption2)
-                .fontWeight(.semibold)
+                .appFont(.caption2, weight: .semibold)
                 .tracking(1)
                 .foregroundStyle(Tokens.muted)
                 .padding(.horizontal, 6)
@@ -168,20 +175,47 @@ struct LaneSeparator: View {
                 // The rule is centred in the padded frame, so this is its y.
                 let ruleY = size.height / 2
 
-                func bar(width: CGFloat, color: Color, from: CGFloat, to: CGFloat) {
+                func bar(
+                    width: CGFloat,
+                    from: CGFloat,
+                    to: CGFloat,
+                    shading: GraphicsContext.Shading
+                ) {
                     context.fill(
                         Path(CGRect(x: centreX - width / 2, y: from, width: width, height: to - from)),
-                        with: .color(color)
+                        with: shading
                     )
                 }
 
-                if let bridgeTop {
-                    bar(width: Tokens.laneStripe, color: bridgeTop, from: 0, to: ruleY)
-                    bar(width: Tokens.line, color: Tokens.ink, from: 0, to: ruleY)
+                func ink(from: CGFloat, to: CGFloat) {
+                    bar(width: Tokens.line, from: from, to: to, shading: .color(Tokens.ink))
                 }
-                if let bridgeBottom {
-                    bar(width: Tokens.laneStripe, color: bridgeBottom, from: ruleY, to: size.height)
-                    bar(width: Tokens.line, color: Tokens.ink, from: ruleY, to: size.height)
+
+                switch (bridgeTop, bridgeBottom) {
+                case let (top?, bottom?):
+                    // One stripe over the full padded height, blending across
+                    // the rule. Dynamic `Color`s resolve per appearance inside a
+                    // `Canvas` (PLAN.md pitfall 15), and so do the colours of a
+                    // `Gradient` — verified in dark mode 2026-09-12.
+                    bar(
+                        width: Tokens.laneStripe,
+                        from: 0,
+                        to: size.height,
+                        shading: .linearGradient(
+                            Gradient(colors: [top, bottom]),
+                            startPoint: CGPoint(x: centreX, y: 0),
+                            endPoint: CGPoint(x: centreX, y: size.height)
+                        )
+                    )
+                    ink(from: 0, to: size.height)
+                case let (top?, nil):
+                    bar(width: Tokens.laneStripe, from: 0, to: ruleY, shading: .color(top))
+                    ink(from: 0, to: ruleY)
+                case let (nil, bottom?):
+                    bar(width: Tokens.laneStripe, from: ruleY, to: size.height, shading: .color(bottom))
+                    ink(from: ruleY, to: size.height)
+                case (nil, nil):
+                    break
                 }
             }
             .frame(width: Tokens.laneColumn)

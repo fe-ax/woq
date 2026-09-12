@@ -29,7 +29,7 @@ struct MuscleTagList: View {
     private func row(for muscle: Muscle) -> some View {
         HStack(spacing: 12) {
             Text(muscle.displayName)
-                .font(.body)
+                .appFont(.body)
                 .foregroundStyle(Tokens.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)

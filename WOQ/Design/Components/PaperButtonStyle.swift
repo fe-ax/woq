@@ -8,7 +8,7 @@ import SwiftUI
 struct PaperButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(.body, weight: .semibold))
+            .appFont(.body, weight: .semibold)
             .foregroundStyle(Tokens.ink)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -29,7 +29,7 @@ struct PaperButtonStyle: ButtonStyle {
 struct InkButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(.body, weight: .semibold))
+            .appFont(.body, weight: .semibold)
             .foregroundStyle(Tokens.paper)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)

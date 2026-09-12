@@ -16,11 +16,11 @@ struct BackupBanner: View {
         OutlinedCard(showsShadow: true) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "Back up automatically"))
-                    .font(.system(.body, weight: .semibold))
+                    .appFont(.body, weight: .semibold)
                     .foregroundStyle(Tokens.ink)
 
                 Text(String(localized: "Pick a folder in Files (for example iCloud Drive) and every change is saved there."))
-                    .font(.subheadline)
+                    .appFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
                     .fixedSize(horizontal: false, vertical: true)
 

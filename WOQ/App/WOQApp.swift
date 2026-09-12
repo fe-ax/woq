@@ -18,7 +18,13 @@ struct WOQApp: App {
     /// (AppSettings.swift).
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = Appearance.system.rawValue
 
+    /// Menu > Appearance > Font. `sfPro` (the default) is the look the app has
+    /// always had (AppFont.swift).
+    @AppStorage(AppSettings.textFontKey) private var textFontRaw = AppFont.sfPro.rawValue
+
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .system }
+
+    private var appFont: AppFont { AppFont(rawValue: textFontRaw) ?? .sfPro }
 
     init() {
         let container = WOQApp.makeContainer()
@@ -43,6 +49,11 @@ struct WOQApp: App {
                 .environment(store)
                 .environment(backupFolder)
                 .environment(backupScheduler)
+                // Every text reads the font from the environment (`.appFont(...)`
+                // instead of `.font(...)`), so switching in the menu redraws the
+                // open sheet and the screen behind it at once. The DEBUG roots go
+                // through `rootView` too and are themed the same way.
+                .environment(\.appFont, appFont)
                 // The theme is applied to the UIWindow, not with
                 // `.preferredColorScheme` — see `applyInterfaceStyle`.
                 .onChange(of: appearanceRaw, initial: true) { _, _ in

@@ -36,17 +36,18 @@ nonisolated enum Appearance: String, CaseIterable, Identifiable, Sendable {
 
 /// `UserDefaults` keys for the handful of app settings.
 ///
-/// Deliberately plain `@AppStorage` and no observable settings object: the two
-/// values are read in three unrelated places (the app root, the Appearance page
-/// and `WaterBackground`), and `@AppStorage` keeps every preview, the component
+/// Deliberately plain `@AppStorage` and no observable settings object: the
+/// values are read in unrelated places (the app root, the Appearance page and
+/// `WaterBackground`), and `@AppStorage` keeps every preview, the component
 /// gallery and the `--preview` debug roots working without environment
 /// plumbing.
 ///
 /// Defaults when nothing has been written yet:
 /// - `appearance` -> `Appearance.system.rawValue` ("system")
 /// - `waterRipple` -> `true` (the in-progress card animates)
+/// - `textFont` -> `AppFont.sfPro.rawValue` ("sfPro", the original look)
 ///
-/// Both defaults live at the `@AppStorage` declarations; there is no
+/// All defaults live at the `@AppStorage` declarations; there is no
 /// `register(defaults:)` call, so reading the raw dictionary shows nothing until
 /// Marco changes something.
 nonisolated enum AppSettings {
@@ -54,4 +55,8 @@ nonisolated enum AppSettings {
     static let appearanceKey = "appearance"
     /// Stores a `Bool`: does the in-progress card's water animate?
     static let waterRippleKey = "waterRipple"
+    /// Stores an `AppFont` raw value: the typeface every text in the app is set
+    /// in (AppFont.swift). `WOQApp` reads it and puts the case into the
+    /// environment, so sheets and the screen behind them change together.
+    static let textFontKey = "textFont"
 }

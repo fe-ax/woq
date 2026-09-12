@@ -46,9 +46,10 @@ struct AppMenuSheet: View {
     @Environment(BackupScheduler.self) private var backupScheduler
 
     /// Only for the summary line under "Appearance" on the root page; the page
-    /// itself owns the same two keys (AppSettings.swift).
+    /// itself owns the same three keys (AppSettings.swift).
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = Appearance.system.rawValue
     @AppStorage(AppSettings.waterRippleKey) private var waterRipple = true
+    @AppStorage(AppSettings.textFontKey) private var textFontRaw = AppFont.sfPro.rawValue
 
     /// Empty = root page. A stack rather than a single optional so a page can
     /// push a page later without touching this file's structure.
@@ -155,7 +156,8 @@ struct AppMenuSheet: View {
                     title: MenuPage.appearance.title,
                     subtitle: AppearancePage.summary(
                         appearanceRaw: appearanceRaw,
-                        waterRipple: waterRipple
+                        waterRipple: waterRipple,
+                        textFontRaw: textFontRaw
                     )
                 ) {
                     push(.appearance)

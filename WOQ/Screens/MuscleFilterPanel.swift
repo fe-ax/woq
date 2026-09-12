@@ -28,7 +28,7 @@ struct MuscleFilterPanel: View {
 
                 HStack(spacing: 8) {
                     Text(String(localized: "Tap muscles to filter"))
-                        .font(.subheadline)
+                        .appFont(.subheadline)
                         .foregroundStyle(Tokens.muted)
 
                     Spacer(minLength: 8)
@@ -77,7 +77,7 @@ struct MuscleFilterPanel: View {
         } label: {
             HStack(spacing: 5) {
                 Text(muscle.displayName)
-                    .font(.system(.footnote, weight: .semibold))
+                    .appFont(.footnote, weight: .semibold)
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
             }

@@ -21,19 +21,18 @@ struct ExerciseRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
-                        .font(.headline)
+                        .appFont(.headline)
                         .foregroundStyle(Tokens.ink)
                         .lineLimit(2)
 
                     Text(relativeDate)
-                        .font(Tokens.numberFont(.subheadline))
+                        .appNumberFont(.subheadline)
                         .foregroundStyle(Tokens.muted)
 
                     // The set string stays on one line at large Dynamic Type
                     // sizes and shrinks a little instead of wrapping.
                     Text(setText)
-                        .font(.subheadline)
-                        .monospacedDigit()
+                        .appNumberFont(.subheadline)
                         .foregroundStyle(Tokens.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)

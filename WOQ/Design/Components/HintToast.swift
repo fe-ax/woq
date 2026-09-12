@@ -32,7 +32,7 @@ private struct HintToastModifier: ViewModifier {
     private func pill(_ text: String) -> some View {
         OutlinedCard(padding: 10, showsShadow: true) {
             Text(text)
-                .font(.subheadline)
+                .appFont(.subheadline)
                 .foregroundStyle(Tokens.ink)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 4)

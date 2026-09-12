@@ -248,7 +248,7 @@ struct MainScreen: View {
     /// configurations, so the settings are reachable in a release build too.
     private var title: some View {
         Text(String(localized: "Workout Queue"))
-            .font(Tokens.titleFont)
+            .appTitleFont()
             .foregroundStyle(Tokens.ink)
             .accessibilityAddTraits(.isHeader)
             .onLongPressGesture(minimumDuration: 0.8) { showMenu = true }
@@ -359,10 +359,10 @@ struct MainScreen: View {
         if ordered.isEmpty {
             VStack(spacing: 6) {
                 Text(String(localized: "No exercises yet"))
-                    .font(.title3)
+                    .appFont(.title3)
                     .foregroundStyle(Tokens.ink)
                 Text(String(localized: "Tap + to add your first exercise"))
-                    .font(.subheadline)
+                    .appFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
             }
             .frame(maxWidth: .infinity)
@@ -371,10 +371,10 @@ struct MainScreen: View {
         } else if queued.isEmpty && isFiltering {
             VStack(spacing: 6) {
                 Text(String(localized: "No matches"))
-                    .font(.title3)
+                    .appFont(.title3)
                     .foregroundStyle(Tokens.ink)
                 Text(noMatchesDetail)
-                    .font(.subheadline)
+                    .appFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
             }
             .frame(maxWidth: .infinity)

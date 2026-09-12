@@ -21,7 +21,7 @@ struct IntensityChip: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(.subheadline, weight: .semibold))
+                .appFont(.subheadline, weight: .semibold)
                 .foregroundStyle(foreground)
                 .lineLimit(1)
                 .padding(.horizontal, 12)

@@ -49,7 +49,7 @@ struct StepperField<Field: Hashable>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
 
             HStack(spacing: 0) {
@@ -60,7 +60,7 @@ struct StepperField<Field: Hashable>: View {
                 )
 
                 TextField("", text: $text, prompt: promptText)
-                    .font(Tokens.numberFont(.body))
+                    .appNumberFont(.body)
                     .multilineTextAlignment(.center)
                     .keyboardType(keyboard)
                     .textInputAutocapitalization(.never)
@@ -73,7 +73,7 @@ struct StepperField<Field: Hashable>: View {
 
                 if let unit {
                     Text(unit)
-                        .font(.subheadline)
+                        .appFont(.subheadline)
                         .foregroundStyle(Tokens.muted)
                         .padding(.trailing, 2)
                         .accessibilityHidden(true)

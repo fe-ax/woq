@@ -41,7 +41,7 @@ struct SheetHeaderBar<Leading: View, Trailing: View>: View {
     /// wrapping and pushing the content down; without one it may wrap once.
     private var titleText: some View {
         Text(title)
-            .font(Tokens.titleFont)
+            .appTitleFont()
             .foregroundStyle(Tokens.ink)
             .lineLimit(Leading.self == EmptyView.self ? 2 : 1)
             .minimumScaleFactor(0.6)

@@ -105,7 +105,7 @@ struct ComponentGallery: View {
                     )
                     OutlinedCard {
                         Text(verbatim: "filled(blue), connectsUp: false")
-                            .font(.footnote)
+                            .appFont(.footnote)
                             .foregroundStyle(Tokens.ink)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -124,7 +124,7 @@ struct ComponentGallery: View {
                     )
                     OutlinedCard {
                         Text(verbatim: "filled(blue), node .top(inset: 30)")
-                            .font(.footnote)
+                            .appFont(.footnote)
                             .foregroundStyle(Tokens.ink)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -143,7 +143,7 @@ struct ComponentGallery: View {
                     )
                     OutlinedCard {
                         Text(verbatim: "outlined, both connectors")
-                            .font(.footnote)
+                            .appFont(.footnote)
                             .foregroundStyle(Tokens.ink)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -201,7 +201,7 @@ struct ComponentGallery: View {
             }
 
             Text(verbatim: "add set \(addedSetCount)x \u{00B7} put back \(undoCount)x")
-                .font(Tokens.numberFont(.caption))
+                .appNumberFont(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }
@@ -240,7 +240,7 @@ struct ComponentGallery: View {
             }
 
             Text(verbatim: "plus · ink glass · blue glass · tap to animate")
-                .font(.caption)
+                .appFont(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }
@@ -260,7 +260,7 @@ struct ComponentGallery: View {
                 ZStack {
                     WaterBackground()
                     Text(verbatim: "Bench press — 40 kg \(Formatting.timesSign) 10")
-                        .font(Tokens.numberFont(.body, weight: .semibold))
+                        .appNumberFont(.body, weight: .semibold)
                         .foregroundStyle(Tokens.ink)
                 }
                 .frame(height: 120)
@@ -287,8 +287,7 @@ struct ComponentGallery: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(verbatim: title.uppercased())
-                .font(.caption2)
-                .fontWeight(.semibold)
+                .appFont(.caption2, weight: .semibold)
                 .tracking(1)
                 .foregroundStyle(Tokens.muted)
             content()

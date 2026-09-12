@@ -84,10 +84,10 @@ struct EntryEditSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Logged"))
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(Tokens.muted)
                     Text(Formatting.absoluteDateTimeString(entry.date))
-                        .font(Tokens.numberFont(.body))
+                        .appNumberFont(.body)
                         .foregroundStyle(Tokens.ink)
                 }
                 .accessibilityElement(children: .combine)
@@ -141,12 +141,12 @@ struct EntryEditSheet: View {
 
                 if let weightProblem {
                     Text(SetFieldHint.text(for: weightProblem))
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(Tokens.danger)
                 }
 
                 Text(String(localized: "Leave the weight empty for a bodyweight set."))
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(Tokens.muted)
             }
             .padding(.horizontal, 16)

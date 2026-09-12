@@ -41,7 +41,7 @@ struct SegmentedRow<Value: Hashable>: View {
             selection = option
         } label: {
             Text(label(option))
-                .font(.system(.subheadline, weight: .semibold))
+                .appFont(.subheadline, weight: .semibold)
                 .foregroundStyle(isSelected ? Tokens.paper : Tokens.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

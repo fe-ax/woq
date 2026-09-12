@@ -110,7 +110,7 @@ struct ExerciseDetailSheet: View {
         HStack(spacing: 8) {
             if exercise.isUnilateral {
                 Text(String(localized: "L/R"))
-                    .font(.system(.caption, weight: .bold))
+                    .appFont(.caption, weight: .bold)
                     // Sits on a blue fill, which stays pastel in both appearances.
                     .foregroundStyle(Tokens.inkOnPastel)
                     .padding(.horizontal, 8)
@@ -127,7 +127,7 @@ struct ExerciseDetailSheet: View {
             }
 
             Text(Formatting.relativeDayString(from: exercise.lastPerformedAt))
-                .font(Tokens.numberFont(.subheadline))
+                .appNumberFont(.subheadline)
                 .foregroundStyle(Tokens.muted)
 
             Spacer(minLength: 0)
@@ -140,7 +140,7 @@ struct ExerciseDetailSheet: View {
 
             if exercise.muscleTags.isEmpty {
                 Text(String(localized: "No muscles tagged"))
-                    .font(.subheadline)
+                    .appFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
             } else {
                 ForEach([Intensity.primary, .secondary, .stabiliser], id: \.rawValue) { intensity in
@@ -156,7 +156,7 @@ struct ExerciseDetailSheet: View {
                                 .frame(width: 12, height: 12)
 
                             Text(String(localized: "\(intensity.displayName): \(names)"))
-                                .font(.subheadline)
+                                .appFont(.subheadline)
                                 .foregroundStyle(Tokens.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -172,7 +172,7 @@ struct ExerciseDetailSheet: View {
 
             if history.isEmpty {
                 Text(String(localized: "No sets logged yet"))
-                    .font(.subheadline)
+                    .appFont(.subheadline)
                     .foregroundStyle(Tokens.muted)
             } else {
                 ForEach(history) { execution in
@@ -193,7 +193,7 @@ struct ExerciseDetailSheet: View {
         OutlinedCard(padding: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(caption(for: execution))
-                    .font(Tokens.numberFont(.caption))
+                    .appNumberFont(.caption)
                     .foregroundStyle(Tokens.muted)
 
                 ForEach(Array(execution.sets.enumerated()), id: \.element.id) { index, entry in
@@ -221,12 +221,12 @@ struct ExerciseDetailSheet: View {
                 // Fixed width and trailing aligned so the set strings line up under each
                 // other whether the execution has 3 sets or 12.
                 Text(verbatim: "\(number)")
-                    .font(Tokens.numberFont(.caption))
+                    .appNumberFont(.caption)
                     .foregroundStyle(Tokens.muted)
                     .frame(width: 16, alignment: .trailing)
 
                 Text(Formatting.setString(for: entry))
-                    .font(Tokens.numberFont(.body, weight: isPeak ? .bold : .regular))
+                    .appNumberFont(.body, weight: isPeak ? .bold : .regular)
                     .foregroundStyle(Tokens.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -260,7 +260,7 @@ struct ExerciseDetailSheet: View {
     /// there is nothing to be the best of.
     private var peakChip: some View {
         Text(String(localized: "peak"))
-            .font(.system(.caption2, weight: .bold))
+            .appFont(.caption2, weight: .bold)
             // Sits on a blue fill, which stays pastel in both appearances.
             .foregroundStyle(Tokens.inkOnPastel)
             .padding(.horizontal, 6)
@@ -281,7 +281,7 @@ struct ExerciseDetailSheet: View {
             isConfirmingExerciseDelete = true
         } label: {
             Text(String(localized: "Delete exercise"))
-                .font(.system(.body, weight: .semibold))
+                .appFont(.body, weight: .semibold)
                 .foregroundStyle(Tokens.danger)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -292,7 +292,7 @@ struct ExerciseDetailSheet: View {
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .font(.system(.headline, weight: .bold))
+            .appFont(.headline, weight: .bold)
             .foregroundStyle(Tokens.ink)
     }
 

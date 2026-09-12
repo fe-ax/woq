@@ -33,6 +33,9 @@ struct SearchField: View {
                 .accessibilityHidden(true)
 
             TextField(String(localized: "Search exercises or muscles"), text: $text)
+                // A field without a font of its own would keep SF Pro while the
+                // rest of the app changes (AppFont.swift).
+                .appFont(.body)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .foregroundStyle(Tokens.ink)
