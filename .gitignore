@@ -12,3 +12,5 @@ xcuserdata/
 WOQ/App/Info.plist
 # Claude Code agent worktrees
 .claude/worktrees/
+# Project notes live in ~/claude-files/woq/notes (loader stub only, personal)
+CLAUDE.local.md
