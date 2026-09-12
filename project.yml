@@ -46,3 +46,38 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug: { MTL_ENABLE_DEBUG_INFO: INCLUDE_SOURCE }
+  # Swift Testing unit bundle (2026-09-12). Hosted by the app so `@testable import WOQ`
+  # sees the app module; sources live in WOQTests/ — a SIBLING of WOQ/, because the app
+  # target globs the whole WOQ/ directory and would otherwise compile the tests into the app.
+  # The project-level `settings.base` above (Swift 6, MainActor default isolation, strict
+  # concurrency) applies here too, so the tests run under exactly the app's rules.
+  WOQTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [WOQTests]
+    dependencies:
+      - target: WOQ
+    settings:
+      base:
+        # No Info.plist file to keep in the repo: Xcode synthesises one for the bundle.
+        GENERATE_INFOPLIST_FILE: YES
+# One explicit scheme, so `xcodebuild test -scheme WOQ` runs the tests while a plain
+# `xcodebuild build -scheme WOQ` only builds the app (WOQTests is marked "test only").
+schemes:
+  WOQ:
+    build:
+      targets:
+        WOQ: all
+        WOQTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WOQTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
