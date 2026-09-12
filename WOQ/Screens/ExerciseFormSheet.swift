@@ -485,6 +485,10 @@ struct ExerciseFormSheet: View {
                 name: trimmedName,
                 isUnilateral: isUnilateral,
                 tags: tags
+            ,
+                // PLACEHOLDER (orchestrator stub): keeps the stored values until the form edits them.
+                equipment: exercise.equipment,
+                notes: exercise.notes
             )
         } else {
             let (exercise, outcome) = store.addExercise(

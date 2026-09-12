@@ -74,20 +74,36 @@ nonisolated enum WOQSchemaV2: VersionedSchema {
     }
 }
 
+/// Version 3 — notes and equipment (decided with Marco 2026-09-12).
+///
+/// `Exercise` gains `notes: String?` and `equipmentRawValue: String?` (the `Equipment` raw
+/// value, see Equipment.swift); `Entry` gains `notes: String?`. All three optional, nothing
+/// renamed or removed, so the V2 -> V3 hop is one `.lightweight` stage and no row is rewritten.
+/// The V3 classes are copies of the V2 ones in `Exercise.swift` / `Entry.swift`; the V1 and V2
+/// copies are frozen. Backup JSON carries the new fields as optionals (format version unchanged).
+nonisolated enum WOQSchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(3, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [Exercise.self, Entry.self]
+    }
+}
+
 /// The migration plan handed to `ModelContainer`.
 ///
 /// `stages` must contain exactly one stage per hop between neighbouring entries of `schemas`:
-/// two versions, one stage. The V1 -> V2 hop only adds an optional property and a property
-/// with an inline default, which SwiftData infers on its own, so `.lightweight` is enough and
-/// no store is rewritten. See the step-by-step note on `WOQSchemaV2` before adding a version.
+/// three versions, two stages. Both hops only add optional properties or properties with an
+/// inline default, which SwiftData infers on its own, so `.lightweight` is enough and no store
+/// is rewritten. See the step-by-step note on `WOQSchemaV2` before adding a version.
 nonisolated enum WOQMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [WOQSchemaV1.self, WOQSchemaV2.self]
+        [WOQSchemaV1.self, WOQSchemaV2.self, WOQSchemaV3.self]
     }
 
     static var stages: [MigrationStage] {
         [
-            .lightweight(fromVersion: WOQSchemaV1.self, toVersion: WOQSchemaV2.self)
+            .lightweight(fromVersion: WOQSchemaV1.self, toVersion: WOQSchemaV2.self),
+            .lightweight(fromVersion: WOQSchemaV2.self, toVersion: WOQSchemaV3.self)
         ]
     }
 }

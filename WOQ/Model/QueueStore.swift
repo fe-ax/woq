@@ -181,9 +181,17 @@ import os
         name: String,
         isUnilateral: Bool,
         tags: [MuscleTag],
+        equipment: Equipment? = nil,
+        notes: String? = nil,
         firstSet: SetDraft?
     ) -> (Exercise, FirstSetOutcome) {
-        let exercise = Exercise(name: name, isUnilateral: isUnilateral, tags: tags)
+        let exercise = Exercise(
+            name: name,
+            isUnilateral: isUnilateral,
+            tags: tags,
+            equipment: equipment,
+            notes: notes
+        )
         modelContext.insert(exercise)
 
         if let firstSet, case .success(let set) = firstSet.validate(isUnilateral: isUnilateral) {
@@ -238,15 +246,21 @@ import os
 
     /// Edit an exercise. Flipping `isUnilateral` leaves existing entries untouched: their
     /// `repsRight` stays as recorded, so old sets keep reading the way they were logged.
+    /// `equipment` and `notes` are written as given (nil clears), so a caller that does not
+    /// edit them must pass the exercise's current values.
     func updateExercise(
         _ exercise: Exercise,
         name: String,
         isUnilateral: Bool,
-        tags: [MuscleTag]
+        tags: [MuscleTag],
+        equipment: Equipment?,
+        notes: String?
     ) {
         exercise.setName(name)
         exercise.isUnilateral = isUnilateral
         exercise.setTags(tags)
+        exercise.equipment = equipment
+        exercise.setNotes(notes)
         save()
     }
 
@@ -276,16 +290,50 @@ import os
         save()
     }
 
-    /// Edit one entry (weight and reps only; the date is fixed, PLAN.md section 2 "Detail")
-    /// and recompute the owner's `lastPerformedAt`.
-    func updateEntry(_ entry: Entry, weightHalfKilos: Int?, reps: Int, repsRight: Int?) {
+    /// Edit one entry (weight, reps and note; the date is fixed, PLAN.md section 2 "Detail")
+    /// and recompute the owner's `lastPerformedAt`. `notes` is written as given (nil or blank
+    /// clears it).
+    func updateEntry(_ entry: Entry, weightHalfKilos: Int?, reps: Int, repsRight: Int?, notes: String?) {
         entry.weightHalfKilos = weightHalfKilos
         entry.reps = reps
         entry.repsRight = repsRight
+        entry.setNotes(notes)
         if let owner = entry.exercise {
             owner.lastPerformedAt = owner.entries.map(\.date).max()
         }
         save()
+    }
+
+    /// Adds one set to an execution that is already in the history (decided 2026-09-12: the
+    /// "Add set" row under an execution card in the detail sheet).
+    ///
+    /// The new `Entry` joins the execution through its key: `execution.id` is
+    /// `Entry.executionKey`, so for a pre-V2 one-set execution it is that set's own `id` and
+    /// the two group together without the old row being touched. It takes the next `setIndex`
+    /// (max + 1, so a gap left by a deleted set does not matter) and the execution's `date`
+    /// (its newest set), so neither the history order nor `lastPerformedAt` moves — dates are
+    /// not editable (PLAN.md section 2 "Detail"). One `save()`, one backup.
+    @discardableResult
+    func addSet(
+        to execution: Execution,
+        of exercise: Exercise,
+        set: ValidatedSet,
+        notes: String? = nil
+    ) -> Entry {
+        let entry = Entry(
+            date: execution.date,
+            weightHalfKilos: set.weightHalfKilos,
+            reps: set.reps,
+            repsRight: set.repsRight,
+            executionID: execution.id,
+            setIndex: (execution.sets.map(\.setIndex).max() ?? -1) + 1,
+            notes: notes
+        )
+        modelContext.insert(entry)
+        entry.exercise = exercise
+        exercise.lastPerformedAt = exercise.entries.map(\.date).max()
+        save()
+        return entry
     }
 
     // MARK: - Names

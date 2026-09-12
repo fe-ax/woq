@@ -197,7 +197,9 @@ struct EntryEditSheet: View {
             entry,
             weightHalfKilos: set.weightHalfKilos,
             reps: set.reps,
-            repsRight: set.repsRight
+            repsRight: set.repsRight,
+            // PLACEHOLDER (orchestrator stub): keeps the stored note until the sheet edits it.
+            notes: entry.notes
         )
         dismiss()
     }
