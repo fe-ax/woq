@@ -159,9 +159,12 @@ struct MainScreen: View {
                 mode: .add,
                 onAdded: handleAdded,
                 onAddedPresets: { count in
-                    hint = count == 1
-                        ? String(localized: "Added 1 exercise to the queue")
-                        : String(localized: "Added \(count) exercises to the queue")
+                    // Automatic grammar agreement picks "exercise" / "exercises";
+                    // only the AttributedString initializer parses the rule.
+                    hint = String(
+                        AttributedString(localized: "Added ^[\(count) exercise](inflect: true) to the queue")
+                            .characters
+                    )
                     successHapticCount += 1
                 }
             )

@@ -18,6 +18,8 @@ struct ComponentGallery: View {
     @State private var undoCount = 0
     @State private var addedSetCount = 0
     @State private var hint: String?
+    @State private var appearanceChoice = Appearance.system
+    @State private var menuTapCount = 0
     @FocusState private var focus: Field?
 
     var body: some View {
@@ -32,6 +34,7 @@ struct ComponentGallery: View {
                     lanes
                     buttons
                     punchedButtons
+                    menuRows
                     keyboardBar
                     water
                     toast
@@ -241,6 +244,52 @@ struct ComponentGallery: View {
 
             Text(verbatim: "plus · ink glass · blue glass · tap to animate")
                 .appFont(.caption)
+                .foregroundStyle(Tokens.muted)
+        }
+    }
+
+    /// The settings menu's building blocks: a root row that pushes a page, the
+    /// action row with its paper button (plain, and disabled with an error line),
+    /// and the paper segmented control inside a card, as on the Appearance page.
+    private var menuRows: some View {
+        section("MenuRow, MenuActionRow and SegmentedRow") {
+            MenuRow(
+                title: String(localized: "Appearance"),
+                subtitle: "System \u{00B7} Ripple on \u{00B7} SF Pro"
+            ) {
+                menuTapCount += 1
+            }
+
+            MenuActionRow(
+                title: String(localized: "Last backup"),
+                subtitle: "Today at 14:21",
+                buttonTitle: String(localized: "Back up now")
+            ) {
+                menuTapCount += 1
+            }
+
+            MenuActionRow(
+                title: String(localized: "Restore"),
+                subtitle: "Merges the backup in the chosen folder into this device",
+                detail: "The folder could not be opened",
+                buttonTitle: String(localized: "Restore\u{2026}"),
+                isDisabled: true
+            ) {}
+
+            OutlinedCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    MenuSectionTitle(String(localized: "Appearance"))
+                    SegmentedRow(
+                        options: Appearance.allCases,
+                        label: \.displayName,
+                        selection: $appearanceChoice
+                    )
+                    MenuCaption("Paper segmented control, no Picker")
+                }
+            }
+
+            Text(verbatim: "rows tapped \(menuTapCount)x \u{00B7} \(appearanceChoice.displayName)")
+                .appNumberFont(.caption)
                 .foregroundStyle(Tokens.muted)
         }
     }
