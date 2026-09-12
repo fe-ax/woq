@@ -283,6 +283,13 @@ struct MainScreen: View {
         }
     }
 
+    /// The blue lane, the card and the set branch (PLAN.md section 2, "Set
+    /// branch"): the lane node sits on the card's thumbnail row instead of the
+    /// card's centre, so it stays put while pending sets make the card grow, and
+    /// the branch overlay forks off it, runs down the card's gutter and merges
+    /// back into the lane at the bottom of the section. The separator then
+    /// carries the lane through the QUEUE rule and hands it to the yellow queue
+    /// lane.
     private func inProgressSection(_ exercise: Exercise) -> some View {
         Group {
             HStack(alignment: .top, spacing: 0) {
@@ -290,7 +297,8 @@ struct MainScreen: View {
                     laneColor: Tokens.blue,
                     nodeStyle: .filled(Tokens.blue),
                     connectsUp: false,
-                    connectsDown: true
+                    connectsDown: true,
+                    nodePlacement: .top(inset: InProgressCard.laneNodeInset)
                 )
 
                 InProgressCard(
@@ -305,10 +313,23 @@ struct MainScreen: View {
                 )
                 .onLongPressGesture(minimumDuration: 0.4) { detailExercise = exercise }
             }
+            // Before `.id`, so the section's identity in the lazy stack is
+            // unchanged (pitfall 7).
+            .setBranchOverlay(
+                forkFrom: CGPoint(
+                    x: Tokens.laneColumn / 2,
+                    y: InProgressCard.laneNodeInset + Tokens.node / 2
+                ),
+                branchX: InProgressCard.branchX
+            )
             .id(Self.inProgressID)
 
-            LaneSeparator()
-                .padding(.vertical, 6)
+            // The bridge only continues lanes that exist: no yellow below the
+            // rule when the queue is empty or filtered away.
+            LaneSeparator(
+                bridgeTop: Tokens.blue,
+                bridgeBottom: queued.isEmpty ? nil : Tokens.yellow
+            )
         }
     }
 

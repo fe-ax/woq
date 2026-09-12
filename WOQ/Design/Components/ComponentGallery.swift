@@ -112,7 +112,27 @@ struct ComponentGallery: View {
                 }
                 .frame(height: 72)
 
-                LaneSeparator()
+                // The in-progress section's placement: the node is pinned 30 pt
+                // from the top instead of floating with the card's centre.
+                HStack(spacing: 0) {
+                    LaneColumn(
+                        laneColor: Tokens.blue,
+                        nodeStyle: .filled(Tokens.blue),
+                        connectsUp: true,
+                        connectsDown: true,
+                        nodePlacement: .top(inset: 30)
+                    )
+                    OutlinedCard {
+                        Text(verbatim: "filled(blue), node .top(inset: 30)")
+                            .font(.footnote)
+                            .foregroundStyle(Tokens.ink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(height: 90)
+
+                // Bridged: the lane crosses the rule, blue above, yellow below.
+                LaneSeparator(bridgeTop: Tokens.blue, bridgeBottom: Tokens.yellow)
 
                 HStack(spacing: 0) {
                     LaneColumn(

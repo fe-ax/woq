@@ -36,6 +36,29 @@ struct InProgressCard: View {
         case repsRight
     }
 
+    /// Height of an outlined input box; the caption label sits above it.
+    /// `SetBranchOverlay` needs it to centre the dashed node on the box.
+    static let fieldBoxHeight: CGFloat = 44
+
+    /// Space in front of the pending rows and the fields row that the set branch
+    /// runs in (PLAN.md section 2, "Set branch"): the 12 pt nodes take its first
+    /// 12 pt, the stripe runs down their centre. Only reserved while there are
+    /// pending sets — without a branch the rows use the full card width.
+    static let branchGutter: CGFloat = 16
+
+    /// x of the branch stripe in the in-progress *section*'s coordinates: the
+    /// card starts after the lane column (28), its own padding (12) is next, and
+    /// the node's centre is half a node (6) further — 46 pt, the centre of the
+    /// gutter's node column.
+    static let branchX: CGFloat = Tokens.laneColumn + Tokens.cardPadding + Tokens.node / 2
+
+    /// Distance from the top of the section to the centre of the lane node
+    /// (`LaneColumn.NodePlacement.top`): the card's own 5 pt of row spacing, its
+    /// 12 pt padding and half of the 48 pt thumbnail. The header row is `.top`
+    /// aligned, so the thumbnail's centre does not move when the card grows —
+    /// the branch always forks off the node next to the exercise name.
+    static let laneNodeInset: CGFloat = Tokens.rowSpacing / 2 + Tokens.cardPadding + 24
+
     var exercise: Exercise
     @Binding var draft: SetDraft
     /// Sets already committed with the plus, in the order they were logged.
@@ -68,21 +91,32 @@ struct InProgressCard: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
 
-            if !pendingSets.isEmpty {
+            if hasBranch {
                 pendingList
             }
 
             fieldsRow
+                .padding(.leading, branchInset)
 
             if let problem = weightProblemText {
                 Text(problem)
                     .font(.caption)
                     .foregroundStyle(Tokens.danger)
                     .accessibilityAddTraits(.isStaticText)
+                    .padding(.leading, branchInset)
             }
         }
         .padding(Tokens.cardPadding)
     }
+
+    /// The branch only exists once a set has been committed with the plus, so an
+    /// exercise logged in one go never grows a gutter.
+    private var hasBranch: Bool { !pendingSets.isEmpty }
+
+    /// `MainScreen` wraps append / remove in `withAnimation(.snappy)`, so the
+    /// rows slide 16 pt right as the branch forks and back when its last set is
+    /// taken away. That movement is the point: the fields step aside for the lane.
+    private var branchInset: CGFloat { hasBranch ? Self.branchGutter : 0 }
 
     private var headerRow: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -167,11 +201,15 @@ struct InProgressCard: View {
                 .foregroundStyle(Tokens.muted)
                 .frame(width: 16, alignment: .trailing)
 
+            // No `minimumScaleFactor` here: a row that is inserted with the
+            // move transition keeps the scale it was measured with mid-animation
+            // until something else relays it out, so the newest row rendered
+            // smaller than its siblings (seen with three pending sets). The
+            // set string is short and the row has ~250 pt for it.
             Text(setText)
                 .font(Tokens.numberFont(.subheadline))
                 .foregroundStyle(Tokens.ink)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
 
             Spacer(minLength: 0)
 
@@ -191,25 +229,39 @@ struct InProgressCard: View {
             onRemovePendingSet(pending.id)
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
+        .padding(.leading, branchInset)
+        // The overlay puts this set's node on the row's vertical centre.
+        .setBranchAnchor(.set(pending.id))
     }
 
-    /// Bilateral: `[Weight kg] [Reps] [+] [✓]` on one row — 134 + 100 + 36 + 36
-    /// plus the 10 / 8 / 10 pt gaps is 334 pt of the card's 344 pt.
+    /// Bilateral: `[Weight kg] [Reps] [+] [✓]` on one row — 130 + 96 + 36 + 36
+    /// plus the 10 / 6 / 10 pt gaps is 324 pt.
     ///
-    /// Unilateral needs three fields, and three do not fit next to the buttons:
-    /// the card is 428 − 32 (screen padding) − 28 (lane) − 24 (card padding) =
-    /// 344 pt wide, while 134 + 100 + 100 + 36 plus three 10 pt gaps is 400 pt.
-    /// So the shared weight keeps the buttons company on the first row and
-    /// Reps L / Reps R sit underneath.
+    /// The card is 428 − 32 (screen padding) − 28 (lane) − 24 (card padding) =
+    /// 344 pt wide, and the set branch takes 16 of those (`branchGutter`), so
+    /// the row has to live in 328. It used to need all 344, so three things
+    /// gave: the `Spacer` between the reps and the buttons is gone (the buttons
+    /// push themselves to the trailing edge instead, which drops one 10 pt
+    /// `HStack` gap), the two buttons sit 6 pt apart instead of 8, and the
+    /// stepper buttons are 26 pt wide instead of 28 — a 44 pt tap target either
+    /// way, since `CompactStepperField` outsets their content shape.
+    ///
+    /// Unilateral needs three fields, and three never fit next to the buttons
+    /// (130 + 96 + 96 + 78 plus gaps), so the shared weight keeps the buttons
+    /// company on the first row and Reps L / Reps R sit underneath.
     @ViewBuilder
     private var fieldsRow: some View {
         if exercise.isUnilateral {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
                     weightField
-                    Spacer(minLength: 0)
                     actionButtons
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                // The branch's dashed node belongs on the *weight* box: it is the
+                // row the plus and the checkmark act on.
+                .setBranchAnchor(.current)
+
                 HStack(alignment: .bottom, spacing: 10) {
                     repsLeftField
                     repsRightField
@@ -220,23 +272,24 @@ struct InProgressCard: View {
             HStack(alignment: .bottom, spacing: 10) {
                 weightField
                 repsLeftField
-                Spacer(minLength: 0)
                 actionButtons
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
+            .setBranchAnchor(.current)
         }
     }
 
-    /// `[+] [✓]`: add this set and stay, or add this set and finish. 8 pt apart
+    /// `[+] [✓]`: add this set and stay, or add this set and finish. 6 pt apart
     /// (closer than the 10 pt field gaps, so they read as one pair), bottom-
     /// aligned with the 44 pt input boxes and nudged up by (44 − 36) / 2 so the
     /// circles are centred on the boxes and not on the boxes plus their caption
     /// labels.
     private var actionButtons: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             addSetButton
             checkmark
         }
-        .padding(.bottom, (CompactStepperField<Field>.boxHeight - 36) / 2)
+        .padding(.bottom, (Self.fieldBoxHeight - 36) / 2)
     }
 
     /// Commits the fields as a pending set. Validated here as well as in
@@ -348,14 +401,16 @@ struct InProgressCard: View {
 /// box, which is right for a full-width form but leaves no room for weight,
 /// reps and the checkmark on one card row. This variant fixes the text field
 /// width (56 pt for a weight like "22.5", 44 pt for reps) and draws the buttons
-/// 28 pt wide while keeping a 44 pt tap target through an outset content shape.
+/// 26 pt wide while keeping a 44 pt tap target through an outset content shape.
 /// No placeholder prompt: the draft arrives prefilled, so grey ghost numbers
 /// would only compete with the real ones.
 private struct CompactStepperField<Field: Hashable>: View {
     /// Height of the outlined box; the caption sits above it.
-    static var boxHeight: CGFloat { 44 }
-    /// Drawn width of a minus / plus button.
-    private static var buttonWidth: CGFloat { 28 }
+    static var boxHeight: CGFloat { InProgressCard.fieldBoxHeight }
+    /// Drawn width of a minus / plus button. 26 rather than 28 buys the 4 pt per
+    /// field the set branch's gutter needs; the outset content shape below keeps
+    /// the tap target at 44 pt.
+    private static var buttonWidth: CGFloat { 26 }
     /// Outset that brings the tap target back to 44 pt.
     private static var buttonSlop: CGFloat { (44 - buttonWidth) / 2 }
 
