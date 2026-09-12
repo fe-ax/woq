@@ -8,7 +8,9 @@ import os
 /// Names: "add" (ExerciseFormSheet .add), "presets" (ExerciseFormSheet .add opened on the preset list),
 /// "edit" (ExerciseFormSheet .edit on a seeded exercise), "detail" (ExerciseDetailSheet on a seeded
 /// exercise with entries), "entry" (EntryEditSheet editing a seeded set), "addset"
-/// (EntryEditSheet adding a set to the newest seeded execution).
+/// (EntryEditSheet adding a set to the newest seeded execution), "chart" (the Progress
+/// section on the seeded exercise with the most executions, plus synthetic series for the
+/// shapes the seed cannot produce — see `ChartDemo`).
 ///
 /// The sheets are shown as the root view, not through `.sheet`, so a screenshot captures them full-screen.
 /// `presentationBackground` / `presentationDetents` are simply inert there.
@@ -104,8 +106,49 @@ struct DebugPreviewRoot: View {
                 placeholder(String(localized: "No seeded execution yet"))
             }
 
+        case "chart":
+            chartPreview
+
         default:
             placeholder(String(localized: "Unknown preview \"\(name)\""))
+        }
+    }
+
+    /// The Progress section on its own. The seeded store tops out at three executions, so the
+    /// shapes that only appear further along — horizontal scrolling, a long S-curving lane, a
+    /// single lonely node, a bodyweight session inside a weighted history — come from
+    /// `ChartDemo`, which builds `Execution`s from unsaved `Entry` objects (never inserted, so
+    /// the store is untouched).
+    private var chartPreview: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let exercise = pinned ?? exerciseWithMostExecutions {
+                    demo("Seeded: \(exercise.name)", ProgressSeries.make(from: exercise.executions))
+                }
+                demo("14 sessions, record in the middle", ChartDemo.longSeries)
+                demo("One session", ChartDemo.singleSeries)
+                demo("Flat history", ChartDemo.flatSeries)
+                demo("Bodyweight session in a weighted history", ChartDemo.mixedSeries)
+                demo("Bodyweight only (reps)", ChartDemo.repsSeries)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollEdgeEffectStyle(.hard, for: .top)
+    }
+
+    private func demo(_ title: String, _ series: ProgressSeries) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(verbatim: title)
+                    .appFont(.headline, weight: .bold)
+                    .foregroundStyle(Tokens.ink)
+                Text(verbatim: ProgressChartText.caption(for: series.metric))
+                    .appFont(.caption)
+                    .foregroundStyle(Tokens.muted)
+                Spacer(minLength: 0)
+            }
+            ProgressChart(series: series)
         }
     }
 
@@ -138,6 +181,11 @@ struct DebugPreviewRoot: View {
             ?? candidates.first
     }
 
+    /// What `--preview chart` pins: the longest history the seed produced.
+    private var exerciseWithMostExecutions: Exercise? {
+        ordered.max { $0.executions.count < $1.executions.count }
+    }
+
     /// The set `--preview entry` opens: the peak of the newest execution, i.e. exactly the
     /// set the queue row and the card show.
     private func latestEntry(of exercise: Exercise) -> Entry? {
@@ -154,8 +202,95 @@ struct DebugPreviewRoot: View {
         switch name {
         case "edit": pinnedID = taggedExercise?.persistentModelID
         case "detail", "entry", "addset": pinnedID = exerciseWithHistory?.persistentModelID
+        case "chart": pinnedID = exerciseWithMostExecutions?.persistentModelID
         default: break
         }
+    }
+}
+
+/// Synthetic progress series for `--preview chart`.
+///
+/// The `Entry` objects are created but never inserted into a `ModelContext`: they exist only
+/// for the length of the redraw, which is all `Execution` and `ProgressSeries` need (both are
+/// in-memory read models). Nothing here can reach the store or a backup.
+private enum ChartDemo {
+
+    /// Fourteen sessions climbing, stalling and dipping, with the best one in the middle so
+    /// the PR chip is not at the scrolled-to end.
+    static var longSeries: ProgressSeries {
+        series([
+            (60, [(140, 8)]),
+            (55, [(145, 8)]),
+            (51, [(145, 10)]),
+            (46, [(150, 8), (150, 7)]),
+            (41, [(150, 10)]),
+            (37, [(155, 8)]),
+            (32, [(160, 10), (165, 6), (160, 8)]),
+            (28, [(155, 8)]),
+            (23, [(150, 10)]),
+            (19, [(155, 9)]),
+            (14, [(160, 8)]),
+            (10, [(160, 9)]),
+            (5, [(162, 9), (160, 10)]),
+            (1, [(165, 8), (165, 8)]),
+        ])
+    }
+
+    /// A single node: no stripe to draw.
+    static var singleSeries: ProgressSeries {
+        series([(4, [(80, 10)])])
+    }
+
+    /// Every session identical — the lane must run flat through the middle instead of
+    /// dividing by a zero range.
+    static var flatSeries: ProgressSeries {
+        series([(30, [(100, 10)]), (20, [(100, 10)]), (10, [(100, 10)]), (2, [(100, 10)])])
+    }
+
+    /// A weighted history with one bodyweight session in it: that node drops to the baseline
+    /// as a dashed "BW".
+    static var mixedSeries: ProgressSeries {
+        series([
+            (28, [(60, 10)]),
+            (21, [(nil, 12), (nil, 10)]),
+            (14, [(64, 10)]),
+            (7, [(70, 8)]),
+            (1, [(70, 10)]),
+        ])
+    }
+
+    /// No weight anywhere: the series plots reps instead, and nothing is a baseline node.
+    static var repsSeries: ProgressSeries {
+        series([
+            (30, [(nil, 8)]),
+            (22, [(nil, 9)]),
+            (15, [(nil, 11), (nil, 9)]),
+            (8, [(nil, 10)]),
+            (2, [(nil, 12), (nil, 10), (nil, 9)]),
+        ])
+    }
+
+    /// `[(daysAgo, [(halfKilos, reps)])]` -> a finished series, oldest first.
+    private static func series(_ table: [(Int, [(Int?, Int)])]) -> ProgressSeries {
+        ProgressSeries.make(from: table.compactMap { execution(daysAgo: $0.0, sets: $0.1) })
+    }
+
+    private static func execution(daysAgo: Int, sets: [(Int?, Int)]) -> Execution? {
+        let calendar = Calendar.current
+        let day = calendar.date(byAdding: .day, value: -daysAgo, to: .now) ?? .now
+        let start = calendar.date(bySettingHour: 9, minute: 6, second: 0, of: day) ?? day
+        let id = UUID()
+
+        let entries = sets.enumerated().map { index, set in
+            Entry(
+                date: start.addingTimeInterval(Double(index) * 180),
+                weightHalfKilos: set.0,
+                reps: set.1,
+                executionID: id,
+                setIndex: index
+            )
+        }
+        return Execution(id: id, sets: entries, isUnilateral: false)
     }
 }
 #endif

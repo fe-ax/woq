@@ -98,6 +98,7 @@ struct ExerciseDetailSheet: View {
                 badges
                 muscleSummary
                 detailsSection
+                progressSection
                 historySection
                 deleteButton
             }
@@ -215,6 +216,34 @@ struct ExerciseDetailSheet: View {
                     .strokeBorder(Tokens.ink, lineWidth: Tokens.hairline)
             )
             .accessibilityLabel(String(localized: "Equipment: \(equipment.displayName)"))
+    }
+
+    /// The progress graph (decided 2026-09-12 evening): one node per execution, plotting the
+    /// estimated 1RM of its peak set — the same Epley number the peak rule already uses.
+    ///
+    /// Nothing is drawn for an exercise that was never performed: an empty card with a title
+    /// over it would be a promise, and the "No sets logged yet" line under History already says
+    /// what is going on. The series is rebuilt on every redraw like `history` is, from the same
+    /// in-memory grouping.
+    @ViewBuilder
+    private var progressSection: some View {
+        let series = ProgressSeries.make(from: history)
+
+        if !series.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    sectionTitle(String(localized: "Progress"))
+
+                    Text(ProgressChartText.caption(for: series.metric))
+                        .appFont(.caption)
+                        .foregroundStyle(Tokens.muted)
+
+                    Spacer(minLength: 0)
+                }
+
+                ProgressChart(series: series)
+            }
+        }
     }
 
     private var historySection: some View {
