@@ -98,7 +98,9 @@ docs/                 toolchain and SwiftUI/SwiftData research notes
 
 ## Licence
 
-Private project, all rights reserved.
+WOQ is free software, released under the GNU General Public License v3.0. See [LICENSE](LICENSE) for the full
+text. You may use, study, modify and share it under the terms of that licence; derived works must stay under
+GPL-3.0.
 
 ---
 
