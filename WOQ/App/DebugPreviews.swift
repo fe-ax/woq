@@ -7,7 +7,8 @@ import os
 /// full-screen for visual verification without going through MainScreen. Owned by the sheets agent in wave 3.
 /// Names: "add" (ExerciseFormSheet .add), "presets" (ExerciseFormSheet .add opened on the preset list),
 /// "edit" (ExerciseFormSheet .edit on a seeded exercise), "detail" (ExerciseDetailSheet on a seeded
-/// exercise with entries), "entry" (EntryEditSheet on a seeded entry).
+/// exercise with entries), "entry" (EntryEditSheet editing a seeded set), "addset"
+/// (EntryEditSheet adding a set to the newest seeded execution).
 ///
 /// The sheets are shown as the root view, not through `.sheet`, so a screenshot captures them full-screen.
 /// `presentationBackground` / `presentationDetents` are simply inert there.
@@ -76,10 +77,31 @@ struct DebugPreviewRoot: View {
             }
 
         case "entry":
-            if let exercise = pinned ?? exerciseWithHistory, let entry = latestEntry(of: exercise) {
-                EntryEditSheet(entry: entry, isUnilateral: exercise.isUnilateral)
+            if let exercise = pinned ?? exerciseWithHistory,
+               let execution = exercise.lastExecution,
+               let entry = latestEntry(of: exercise) {
+                // The peak of the newest execution, with its real position so the
+                // "Set 2 of 3" caption shows what the detail sheet would pass.
+                EntryEditSheet(
+                    mode: .edit(
+                        entry: entry,
+                        position: (execution.sets.firstIndex { $0 === entry } ?? 0) + 1,
+                        setCount: execution.setCount
+                    ),
+                    isUnilateral: exercise.isUnilateral
+                )
             } else {
                 placeholder(String(localized: "No seeded entry yet"))
+            }
+
+        case "addset":
+            if let exercise = pinned ?? exerciseWithHistory, let execution = exercise.lastExecution {
+                EntryEditSheet(
+                    mode: .add(execution: execution, exercise: exercise),
+                    isUnilateral: exercise.isUnilateral
+                )
+            } else {
+                placeholder(String(localized: "No seeded execution yet"))
             }
 
         default:
@@ -131,7 +153,7 @@ struct DebugPreviewRoot: View {
         guard pinnedID == nil else { return }
         switch name {
         case "edit": pinnedID = taggedExercise?.persistentModelID
-        case "detail", "entry": pinnedID = exerciseWithHistory?.persistentModelID
+        case "detail", "entry", "addset": pinnedID = exerciseWithHistory?.persistentModelID
         default: break
         }
     }

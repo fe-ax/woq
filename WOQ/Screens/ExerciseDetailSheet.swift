@@ -14,7 +14,9 @@ struct ExerciseDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isEditingExercise = false
-    @State private var editedEntry: Entry?
+    /// The set editor: `.edit` from a set's pencil, `.add` from an execution's "Add set"
+    /// row. One piece of state for both, so only one of them can be up at a time.
+    @State private var setSheet: EntryEditSheet.Mode?
     @State private var entryPendingDelete: Entry?
     @State private var isConfirmingExerciseDelete = false
 
@@ -40,8 +42,8 @@ struct ExerciseDetailSheet: View {
         .sheet(isPresented: $isEditingExercise) {
             ExerciseFormSheet(mode: .edit(exercise))
         }
-        .sheet(item: $editedEntry) { entry in
-            EntryEditSheet(entry: entry, isUnilateral: exercise.isUnilateral)
+        .sheet(item: $setSheet) { mode in
+            EntryEditSheet(mode: mode, isUnilateral: exercise.isUnilateral)
         }
         // `confirmationDialog` renders on iOS 26 as a compact card whose only
         // way out is a tap outside, so both destructive confirmations are
@@ -95,6 +97,7 @@ struct ExerciseDetailSheet: View {
 
                 badges
                 muscleSummary
+                detailsSection
                 historySection
                 deleteButton
             }
@@ -166,6 +169,54 @@ struct ExerciseDetailSheet: View {
         }
     }
 
+    /// Equipment tag and exercise note (2026-09-12). The detail sheet is the only place
+    /// they are shown; rows and the in-progress card stay as they were. Nothing is drawn when
+    /// the exercise carries neither.
+    @ViewBuilder
+    private var detailsSection: some View {
+        let note = exercise.notes ?? ""
+
+        if exercise.equipment != nil || !note.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                if let equipment = exercise.equipment {
+                    equipmentChip(equipment)
+                }
+
+                if !note.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "Notes"))
+                            .appFont(.caption)
+                            .foregroundStyle(Tokens.muted)
+                        Text(note)
+                            .appFont(.body)
+                            .foregroundStyle(Tokens.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+    }
+
+    /// The L/R badge's shape in quiet clothes: card fill and muted text, because the
+    /// equipment is a label, not a state.
+    private func equipmentChip(_ equipment: Equipment) -> some View {
+        Text(equipment.displayName)
+            .appFont(.caption, weight: .bold)
+            .foregroundStyle(Tokens.muted)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
+                    .fill(Tokens.card)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
+                    .strokeBorder(Tokens.ink, lineWidth: Tokens.hairline)
+            )
+            .accessibilityLabel(String(localized: "Equipment: \(equipment.displayName)"))
+    }
+
     private var historySection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle(String(localized: "History"))
@@ -200,12 +251,45 @@ struct ExerciseDetailSheet: View {
                     setRow(
                         number: index + 1,
                         entry: entry,
+                        setCount: execution.setCount,
                         isPeak: entry === execution.peak,
                         showsPeakChip: execution.setCount > 1 && entry === execution.peak
                     )
                 }
+
+                addSetRow(for: execution)
             }
         }
+    }
+
+    /// "Add set" under every execution card (decided 2026-09-12): a set logged on the phone
+    /// but forgotten can be written into the session it belongs to instead of becoming a
+    /// separate one. The whole row is the button; `QueueStore.addSet(to:of:set:notes:)` puts
+    /// the new set at the end of the execution with the execution's own date.
+    private func addSetRow(for execution: Execution) -> some View {
+        Button {
+            setSheet = .add(execution: execution, exercise: exercise)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Tokens.ink)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Tokens.card))
+                    .overlay(Circle().strokeBorder(Tokens.ink, lineWidth: Tokens.hairline))
+
+                Text(String(localized: "Add set"))
+                    .appFont(.caption)
+                    .foregroundStyle(Tokens.muted)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
+            .frame(minHeight: 40)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Add set to this execution"))
     }
 
     /// One set: its position in the execution, what was logged, the peak badge, edit, delete.
@@ -214,44 +298,67 @@ struct ExerciseDetailSheet: View {
     /// deleting the middle set of three leaves 1 and 2 rather than a gap.
     ///
     /// Everything left of the buttons is combined into a single VoiceOver element; the two
-    /// buttons stay separately reachable next to it.
-    private func setRow(number: Int, entry: Entry, isPeak: Bool, showsPeakChip: Bool) -> some View {
-        HStack(spacing: 4) {
-            HStack(spacing: 8) {
-                // Fixed width and trailing aligned so the set strings line up under each
-                // other whether the execution has 3 sets or 12.
-                Text(verbatim: "\(number)")
-                    .appNumberFont(.caption)
-                    .foregroundStyle(Tokens.muted)
-                    .frame(width: 16, alignment: .trailing)
+    /// buttons stay separately reachable next to it. A note typed afterwards (2026-09-12)
+    /// hangs under the row as its own muted line.
+    private func setRow(
+        number: Int,
+        entry: Entry,
+        setCount: Int,
+        isPeak: Bool,
+        showsPeakChip: Bool
+    ) -> some View {
+        let note = entry.notes ?? ""
 
-                Text(Formatting.setString(for: entry))
-                    .appNumberFont(.body, weight: isPeak ? .bold : .regular)
-                    .foregroundStyle(Tokens.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                HStack(spacing: 8) {
+                    // Fixed width and trailing aligned so the set strings line up under
+                    // each other whether the execution has 3 sets or 12.
+                    Text(verbatim: "\(number)")
+                        .appNumberFont(.caption)
+                        .foregroundStyle(Tokens.muted)
+                        .frame(width: 16, alignment: .trailing)
 
-                if showsPeakChip {
-                    peakChip
+                    Text(Formatting.setString(for: entry))
+                        .appNumberFont(.body, weight: isPeak ? .bold : .regular)
+                        .foregroundStyle(Tokens.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    if showsPeakChip {
+                        peakChip
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(setLabel(number: number, entry: entry, isPeak: showsPeakChip))
+
+                Spacer(minLength: 4)
+
+                RoundIconButton(
+                    systemName: "pencil",
+                    accessibilityLabel: String(localized: "Edit set")
+                ) {
+                    setSheet = .edit(entry: entry, position: number, setCount: setCount)
+                }
+
+                RoundIconButton(
+                    systemName: "trash",
+                    accessibilityLabel: String(localized: "Delete set")
+                ) {
+                    entryPendingDelete = entry
                 }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(setLabel(number: number, entry: entry, isPeak: showsPeakChip))
 
-            Spacer(minLength: 4)
-
-            RoundIconButton(
-                systemName: "pencil",
-                accessibilityLabel: String(localized: "Edit set")
-            ) {
-                editedEntry = entry
-            }
-
-            RoundIconButton(
-                systemName: "trash",
-                accessibilityLabel: String(localized: "Delete set")
-            ) {
-                entryPendingDelete = entry
+            // The note the set was given afterwards, indented under its set string
+            // (16 pt number column + 8 pt spacing).
+            if !note.isEmpty {
+                Text(note)
+                    .appFont(.caption)
+                    .foregroundStyle(Tokens.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 2)
+                    .accessibilityLabel(String(localized: "Note: \(note)"))
             }
         }
     }

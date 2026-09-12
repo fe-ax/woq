@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Add / edit an exercise. INTERFACE CONTRACT fixed by the orchestrator; the sheets agent replaces the body.
-/// - `.add`: name, unilateral toggle, muscle chips with live figure, optional first set; Save calls
+/// - `.add`: name, unilateral toggle, muscle chips with live figure, optional first set, and a
+///   folded "More" section (equipment chips + notes); Save calls
 ///   `store.addExercise(...)` and then `onAdded` with the result so MainScreen can carry a partial draft
 ///   into the in-progress card when the outcome is `.startedInProgress`.
 /// - `.edit(exercise)`: same fields without the first-set section; Save calls `store.updateExercise(...)`.
@@ -42,6 +43,11 @@ struct ExerciseFormSheet: View {
     @State private var tags: [MuscleTag] = []
     /// Add mode only; ignored while editing.
     @State private var firstSet = SetDraft()
+    /// "More" section (2026-09-12): equipment tag and free-form note, both optional.
+    @State private var equipment: Equipment?
+    @State private var notes = ""
+    /// Collapsed by default; an edited exercise that already carries either opens on it.
+    @State private var isMoreExpanded = false
     /// Guards the one-time copy in `onAppear`.
     @State private var didLoad = false
 
@@ -58,6 +64,7 @@ struct ExerciseFormSheet: View {
         case weight
         case reps
         case repsRight
+        case notes
     }
 
     @FocusState private var focus: Field?
@@ -230,6 +237,8 @@ struct ExerciseFormSheet: View {
                 if isAdd {
                     firstSetSection
                 }
+
+                moreSection
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
@@ -350,6 +359,37 @@ struct ExerciseFormSheet: View {
         }
     }
 
+    /// Everything that is not the exercise itself, folded away (decided 2026-09-12): the
+    /// equipment chips and a free-form note. Sits at the bottom of the form in both modes —
+    /// under the first set while adding, under the muscles while editing, because the
+    /// first-set section only exists in add mode.
+    private var moreSection: some View {
+        DisclosureRow(
+            title: String(localized: "More"),
+            accessibilityHint: String(localized: "Equipment and notes"),
+            isExpanded: $isMoreExpanded
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(String(localized: "Equipment"))
+                        .appFont(.caption)
+                        .foregroundStyle(Tokens.muted)
+                    EquipmentChipRow(selection: $equipment)
+                }
+
+                NotesField(
+                    title: String(localized: "Notes"),
+                    placeholder: String(localized: "Notes"),
+                    text: $notes,
+                    lineLimit: 1...4,
+                    focus: $focus,
+                    field: .notes,
+                    accessibilityLabel: String(localized: "Notes on this exercise")
+                )
+            }
+        }
+    }
+
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
             .appFont(.headline, weight: .bold)
@@ -391,7 +431,7 @@ struct ExerciseFormSheet: View {
     private var isNumericFieldFocused: Bool {
         switch focus {
         case .weight, .reps, .repsRight: true
-        case .name, .none: false
+        case .name, .notes, .none: false
         }
     }
 
@@ -400,7 +440,7 @@ struct ExerciseFormSheet: View {
         switch focus {
         case .weight: true
         case .reps: isUnilateral
-        case .repsRight, .name, .none: false
+        case .repsRight, .name, .notes, .none: false
         }
     }
 
@@ -408,7 +448,7 @@ struct ExerciseFormSheet: View {
         switch focus {
         case .weight: focus = .reps
         case .reps: focus = isUnilateral ? .repsRight : nil
-        case .repsRight, .name, .none: focus = nil
+        case .repsRight, .name, .notes, .none: focus = nil
         }
     }
 
@@ -420,6 +460,11 @@ struct ExerciseFormSheet: View {
             name = exercise.name
             isUnilateral = exercise.isUnilateral
             tags = exercise.muscleTags
+            equipment = exercise.equipment
+            notes = exercise.notes ?? ""
+            // Nothing may hide behind a closed row: an exercise that already carries a tag
+            // or a note opens with "More" unfolded.
+            isMoreExpanded = equipment != nil || !notes.isEmpty
             return
         }
 
@@ -480,21 +525,22 @@ struct ExerciseFormSheet: View {
         focus = nil
 
         if let exercise = editedExercise {
+            // `notes` is normalised by the store (blank -> nil, PLAN.md "More section").
             store.updateExercise(
                 exercise,
                 name: trimmedName,
                 isUnilateral: isUnilateral,
-                tags: tags
-            ,
-                // PLACEHOLDER (orchestrator stub): keeps the stored values until the form edits them.
-                equipment: exercise.equipment,
-                notes: exercise.notes
+                tags: tags,
+                equipment: equipment,
+                notes: notes
             )
         } else {
             let (exercise, outcome) = store.addExercise(
                 name: trimmedName,
                 isUnilateral: isUnilateral,
                 tags: tags,
+                equipment: equipment,
+                notes: notes,
                 firstSet: firstSet.isEmpty ? nil : firstSet
             )
             onAdded?(AddResult(exercise: exercise, outcome: outcome, draft: firstSet))

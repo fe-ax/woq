@@ -8,6 +8,7 @@ struct ComponentGallery: View {
     private enum Field: Hashable {
         case weight
         case reps
+        case note
     }
 
     @State private var weightText = "40"
@@ -20,6 +21,9 @@ struct ComponentGallery: View {
     @State private var hint: String?
     @State private var appearanceChoice = Appearance.system
     @State private var menuTapCount = 0
+    @State private var equipment: Equipment? = .dumbbell
+    @State private var noteText = ""
+    @State private var isMoreExpanded = true
     @FocusState private var focus: Field?
 
     var body: some View {
@@ -35,6 +39,7 @@ struct ComponentGallery: View {
                     buttons
                     punchedButtons
                     menuRows
+                    more
                     keyboardBar
                     water
                     toast
@@ -296,6 +301,31 @@ struct ComponentGallery: View {
 
     /// Shown inline here; on the real screens it rides on the keyboard through
     /// `.safeAreaInset(edge: .bottom)`.
+    /// The exercise form's folded "More" block: disclosure row, equipment chips, notes field.
+    private var more: some View {
+        section("DisclosureRow, EquipmentChipRow and NotesField") {
+            DisclosureRow(
+                title: String(localized: "More"),
+                accessibilityHint: String(localized: "Equipment and notes"),
+                isExpanded: $isMoreExpanded
+            ) {
+                VStack(alignment: .leading, spacing: 16) {
+                    EquipmentChipRow(selection: $equipment)
+
+                    NotesField(
+                        title: String(localized: "Notes"),
+                        placeholder: String(localized: "Notes"),
+                        text: $noteText,
+                        lineLimit: 1...4,
+                        focus: $focus,
+                        field: .note,
+                        accessibilityLabel: String(localized: "Notes on this exercise")
+                    )
+                }
+            }
+        }
+    }
+
     private var keyboardBar: some View {
         section("KeyboardAccessoryBar") {
             KeyboardAccessoryBar(showsNext: true, onNext: { focus = .reps }, onDone: { focus = nil })

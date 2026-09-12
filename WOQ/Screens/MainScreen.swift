@@ -411,7 +411,8 @@ struct MainScreen: View {
     ///
     /// Text and muscles are ANDed; within the muscle filter the rule is ANY
     /// (an exercise matches when it tags at least one selected muscle, at any
-    /// intensity).
+    /// intensity). The text matches the name, the muscle names and the
+    /// equipment tag.
     private var queued: [Exercise] {
         let inProgressID = inProgress?.id
         var base = ordered.filter { $0.id != inProgressID }
@@ -420,6 +421,10 @@ struct MainScreen: View {
             base = base.filter {
                 $0.nameKey.localizedStandardContains(query)
                     || $0.muscleSearchText.localizedStandardContains(query)
+                    // The equipment tag searches too (2026-09-12): "dumbbell" finds every
+                    // dumbbell exercise. Read off the enum rather than a denormalised
+                    // column, because the tag is one short word per exercise.
+                    || ($0.equipment?.displayName.localizedStandardContains(query) ?? false)
             }
         }
 
