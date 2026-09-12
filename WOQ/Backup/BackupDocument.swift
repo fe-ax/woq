@@ -18,9 +18,12 @@ import Foundation
 ///   importer recomputes it from the entries anyway, so a hand-edited file cannot corrupt
 ///   the queue order.
 ///
-/// `formatVersion` is the file format, not the SwiftData schema version (`WOQSchemaV2`).
+/// `formatVersion` is the file format, not the SwiftData schema version (`WOQSchemaV3`).
 /// Bump it only when this JSON shape changes incompatibly, and keep a reader for the old
-/// value; adding an optional field does not need a bump.
+/// value; adding an optional field does not need a bump — which is why schema V2
+/// (`executionID` / `setIndex`) and schema V3 (`notes` on both records, `equipment` on the
+/// exercise, 2026-09-12) both left it at 1: every added key is optional, an old file decodes
+/// with nils and an older build ignores the keys it does not know.
 nonisolated struct BackupDocument: Codable, Sendable, Equatable {
 
     /// Version of this JSON layout. 1 = the shape below.
@@ -133,12 +136,24 @@ nonisolated struct BackupDocument: Codable, Sendable, Equatable {
 ///
 /// `id` is the `Exercise.id` UUID and is the primary key on import: the same file merged
 /// twice updates the same rows instead of duplicating them.
+///
+/// `notes` / `equipment` (schema V3, 2026-09-12) are optional, so a file written before they
+/// existed decodes with nils — synthesized `Codable` reads a missing key for an `Optional`
+/// as nil, which is what keeps `formatVersion` at 1.
 nonisolated struct ExerciseRecord: Codable, Sendable, Equatable, Identifiable {
     var id: UUID
     var name: String
     var isUnilateral: Bool
     var muscleTags: [MuscleTag]
     var createdAt: Date
+    /// Free-form note about the exercise, nil when there is none. Never the empty string:
+    /// the writer passes `Exercise.notes`, already normalised by `Exercise.cleanedNotes(_:)`,
+    /// so "no note" is one value in the file as well as in the store.
+    var notes: String?
+    /// `Equipment.rawValue` ("barbell", "cable", …), nil when the exercise has no tag.
+    /// The raw string, deliberately not the enum: a value written by a build with more cases
+    /// must survive the round trip untouched instead of decoding as nil (Equipment.swift).
+    var equipment: String?
     /// Denormalised queue sort key; recomputed from `entries` on import.
     var lastPerformedAt: Date?
     /// Sets, oldest first.
@@ -150,6 +165,8 @@ nonisolated struct ExerciseRecord: Codable, Sendable, Equatable, Identifiable {
         isUnilateral: Bool,
         muscleTags: [MuscleTag],
         createdAt: Date,
+        notes: String? = nil,
+        equipment: String? = nil,
         lastPerformedAt: Date?,
         entries: [EntryRecord]
     ) {
@@ -158,6 +175,8 @@ nonisolated struct ExerciseRecord: Codable, Sendable, Equatable, Identifiable {
         self.isUnilateral = isUnilateral
         self.muscleTags = muscleTags
         self.createdAt = createdAt
+        self.notes = notes
+        self.equipment = equipment
         self.lastPerformedAt = lastPerformedAt
         self.entries = entries
     }
@@ -175,6 +194,9 @@ nonisolated struct ExerciseRecord: Codable, Sendable, Equatable, Identifiable {
 /// The writer always fills them in (it writes the *resolved* `Entry.executionKey`, never the
 /// raw optional), so every file written from now on groups correctly even when it is restored
 /// onto a fresh install.
+///
+/// `notes` (schema V3, 2026-09-12) follows the same rule: optional, absent in every older
+/// file, nil when the set carries no note — never the empty string.
 nonisolated struct EntryRecord: Codable, Sendable, Equatable, Identifiable {
     var id: UUID
     var date: Date
@@ -185,6 +207,8 @@ nonisolated struct EntryRecord: Codable, Sendable, Equatable, Identifiable {
     var executionID: UUID?
     /// Position inside the execution; nil only in files written before V2 (read as 0).
     var setIndex: Int?
+    /// Free-form note on this set, nil when there is none (normalised by `Entry.setNotes`).
+    var notes: String?
 
     init(
         id: UUID,
@@ -193,7 +217,8 @@ nonisolated struct EntryRecord: Codable, Sendable, Equatable, Identifiable {
         reps: Int,
         repsRight: Int?,
         executionID: UUID? = nil,
-        setIndex: Int? = nil
+        setIndex: Int? = nil,
+        notes: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -202,5 +227,6 @@ nonisolated struct EntryRecord: Codable, Sendable, Equatable, Identifiable {
         self.repsRight = repsRight
         self.executionID = executionID
         self.setIndex = setIndex
+        self.notes = notes
     }
 }

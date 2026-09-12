@@ -290,17 +290,17 @@ import os
         save()
     }
 
-    /// Edit one entry (weight, reps and note; the date is fixed, PLAN.md section 2 "Detail")
-    /// and recompute the owner's `lastPerformedAt`. `notes` is written as given (nil or blank
-    /// clears it).
+    /// Edit one entry (weight, reps and note; the date is fixed, PLAN.md section 2 "Detail").
+    /// `notes` is written as given (nil or blank clears it).
+    ///
+    /// `lastPerformedAt` is left alone: the date cannot change here, and recomputing it from
+    /// the set dates would silently pull it back from the checkmark time `finalize` stamped
+    /// (`max(date, lastSetAt)`) to the last set's own date (found 2026-09-12).
     func updateEntry(_ entry: Entry, weightHalfKilos: Int?, reps: Int, repsRight: Int?, notes: String?) {
         entry.weightHalfKilos = weightHalfKilos
         entry.reps = reps
         entry.repsRight = repsRight
         entry.setNotes(notes)
-        if let owner = entry.exercise {
-            owner.lastPerformedAt = owner.entries.map(\.date).max()
-        }
         save()
     }
 
@@ -331,7 +331,9 @@ import os
         )
         modelContext.insert(entry)
         entry.exercise = exercise
-        exercise.lastPerformedAt = exercise.entries.map(\.date).max()
+        // Never earlier than what `finalize` stamped (the checkmark time can be a few seconds
+        // after the last set); a set added to an older execution changes nothing.
+        exercise.lastPerformedAt = max(exercise.lastPerformedAt ?? entry.date, entry.date)
         save()
         return entry
     }

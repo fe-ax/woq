@@ -18,7 +18,8 @@ import SwiftData
     ///
     /// Exercises come back sorted by `createdAt` (then name, so the order is total and the
     /// file is byte-stable between runs), entries sorted by `date` oldest first.
-    /// `inProgressSince` is skipped on purpose — see `BackupDocument`.
+    /// `inProgressSince` is skipped on purpose — see `BackupDocument`. The V3 columns travel
+    /// along: the exercise's `notes` and `equipmentRawValue`, and each set's `notes`.
     ///
     /// Throws whatever `fetch` throws; the caller (`BackupScheduler`) logs it rather than
     /// letting a backup failure take the app down.
@@ -38,6 +39,13 @@ import SwiftData
                 isUnilateral: exercise.isUnilateral,
                 muscleTags: exercise.muscleTags,
                 createdAt: exercise.createdAt,
+                // Normalised once more on the way out: `Exercise.notes` is already nil-or-
+                // non-blank (everything goes through `setNotes`), and the file must never
+                // carry "" for "no note".
+                notes: Exercise.cleanedNotes(exercise.notes),
+                // The RAW value, not `exercise.equipment`: an unknown tag written by a newer
+                // build would decode as nil through the enum and be silently dropped here.
+                equipment: exercise.equipmentRawValue,
                 lastPerformedAt: exercise.lastPerformedAt,
                 entries: exercise.entries
                     .sorted {
@@ -56,7 +64,8 @@ import SwiftData
                             // to its own id, so the file states the grouping outright and a
                             // restore onto a fresh install reproduces it without guessing.
                             executionID: entry.executionKey,
-                            setIndex: entry.setIndex
+                            setIndex: entry.setIndex,
+                            notes: Exercise.cleanedNotes(entry.notes)
                         )
                     }
             )

@@ -22,6 +22,10 @@ nonisolated enum SeedData {
         var name: String
         var isUnilateral: Bool = false
         var tags: [MuscleTag]
+        /// Equipment tag, nil for most samples (schema V3, 2026-09-12).
+        var equipment: Equipment?
+        /// Exercise note, nil for most samples (schema V3).
+        var notes: String?
         /// Logging events, newest first in this table; inserted oldest first.
         var executions: [Execution] = []
 
@@ -45,11 +49,14 @@ nonisolated enum SeedData {
             var halfKilos: Int?
             var reps: Int
             var repsRight: Int?
+            /// Set note (schema V3), nil for almost every sample set.
+            var note: String?
 
-            init(_ halfKilos: Int?, _ reps: Int, _ repsRight: Int? = nil) {
+            init(_ halfKilos: Int?, _ reps: Int, _ repsRight: Int? = nil, note: String? = nil) {
                 self.halfKilos = halfKilos
                 self.reps = reps
                 self.repsRight = repsRight
+                self.note = note
             }
         }
     }
@@ -71,13 +78,31 @@ nonisolated enum SeedData {
                 name: sample.name,
                 isUnilateral: sample.isUnilateral,
                 tags: sample.tags,
+                equipment: sample.equipment,
+                notes: sample.notes,
                 firstSet: nil
             )
 
             for execution in sample.executions.sorted(by: { $0.daysAgo > $1.daysAgo }) {
                 let sets = pendingSets(for: execution, calendar: calendar, now: now)
                 guard let checkmark = sets.last?.loggedAt else { continue }
-                store.finalize(exercise, with: sets, at: checkmark)
+                let entries = store.finalize(exercise, with: sets, at: checkmark)
+
+                // A set note is typed afterwards in the detail sheet, never while logging
+                // (decided 2026-09-12), so the seed writes it the same way the app does: a
+                // second `updateEntry` on a set that already exists, with everything else
+                // handed back unchanged. `finalize` returns the entries in set order.
+                for (index, log) in execution.sets.enumerated() {
+                    guard let note = log.note, index < entries.count else { continue }
+                    let entry = entries[index]
+                    store.updateEntry(
+                        entry,
+                        weightHalfKilos: entry.weightHalfKilos,
+                        reps: entry.reps,
+                        repsRight: entry.repsRight,
+                        notes: note
+                    )
+                }
             }
         }
 
@@ -120,6 +145,12 @@ nonisolated enum SeedData {
     /// 21 exercises: 16 with 1-3 executions spread over the last 60 days, 5 never performed.
     /// Weights are half-kilos (80 == 40 kg); "plank" counts holds as reps, never seconds.
     ///
+    /// Five carry an equipment tag (barbell, dumbbell, cable, machine, bodyweight — one of
+    /// each, so the chips render in every colour the form can produce), two carry an exercise
+    /// note and two sets carry a set note (schema V3, 2026-09-12). Like the names, these
+    /// strings are sample DATA, not UI text, so they are plain literals and never go through
+    /// `String(localized:)` (same rule as `ExercisePresets`).
+    ///
     /// Four of them carry a multi-set latest execution so the queue row, the card line and
     /// the history all show the grouped shape, and each puts the Epley peak somewhere else:
     /// Bench press on set 2 (80 kg \u{00D7} 10 = 106.7 beats the heavier 82.5 kg \u{00D7} 6 = 99.0),
@@ -131,8 +162,14 @@ nonisolated enum SeedData {
             Sample(
                 name: "Bench press",
                 tags: [tag(.chest, .primary), tag(.deltoidFront, .secondary), tag(.triceps, .secondary)],
+                equipment: .barbell,
+                notes: "Feet flat, shoulder blades pinched, bar to the lower chest.",
                 executions: [
-                    .init(10, sets: [.init(165, 6), .init(160, 10), .init(160, 8)]),
+                    .init(10, sets: [
+                        .init(165, 6),
+                        .init(160, 10, note: "Best set of the day — try 82.5 next time."),
+                        .init(160, 8),
+                    ]),
                     .init(24, sets: [.init(170, 8)]),
                     .init(45, sets: [.init(160, 8)]),
                 ]
@@ -140,6 +177,7 @@ nonisolated enum SeedData {
             Sample(
                 name: "Incline dumbbell press",
                 tags: [tag(.chest, .primary), tag(.deltoidFront, .secondary), tag(.triceps, .stabiliser)],
+                equipment: .dumbbell,
                 executions: [
                     .init(17, sets: [.init(64, 10)]),
                     .init(38, sets: [.init(60, 10)]),
@@ -152,7 +190,11 @@ nonisolated enum SeedData {
                     tag(.lowerBack, .stabiliser), tag(.abs, .stabiliser),
                 ],
                 executions: [
-                    .init(12, sets: [.init(180, 5), .init(180, 5), .init(170, 8)]),
+                    .init(12, sets: [
+                        .init(180, 5),
+                        .init(180, 5),
+                        .init(170, 8, note: "Depth fine, belt on for the last set."),
+                    ]),
                     .init(31, sets: [.init(170, 5)]),
                     .init(52, sets: [.init(160, 5)]),
                 ]
@@ -190,6 +232,7 @@ nonisolated enum SeedData {
             Sample(
                 name: "Lat pulldown",
                 tags: [tag(.lats, .primary), tag(.biceps, .secondary), tag(.upperBack, .secondary)],
+                equipment: .cable,
                 executions: [
                     .init(5, sets: [.init(115, 10)]),
                     .init(21, sets: [.init(110, 10)]),
@@ -201,6 +244,8 @@ nonisolated enum SeedData {
                     tag(.lats, .primary), tag(.biceps, .secondary), tag(.upperBack, .secondary),
                     tag(.abs, .stabiliser),
                 ],
+                equipment: .bodyweight,
+                notes: "Dead hang at the bottom; add a belt once 12 clean reps feel easy.",
                 executions: [
                     .init(3, sets: [.init(nil, 8), .init(nil, 11), .init(nil, 9)]),
                     .init(11, sets: [.init(nil, 9)]),
@@ -245,6 +290,7 @@ nonisolated enum SeedData {
             Sample(
                 name: "Leg press",
                 tags: [tag(.quads, .primary), tag(.glutes, .secondary), tag(.hamstrings, .stabiliser)],
+                equipment: .machine,
                 executions: [
                     .init(18, sets: [.init(440, 10)]),
                     .init(44, sets: [.init(400, 10)]),

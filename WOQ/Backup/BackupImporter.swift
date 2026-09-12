@@ -81,6 +81,14 @@ import os
     ///    record; a file written before schema V2 has neither, and each of its sets then keeps
     ///    its own id as the execution key — one set, one execution, which is exactly how the
     ///    store reads such a set anyway (`Entry.executionKey`).
+    /// 7. **A nil never erases (schema V3: notes and equipment).** The other scalars are
+    ///    overwritten from the record, but `notes` / `equipment` are only written when the
+    ///    record actually carries one. A file written before V3 has no such key at all, and a
+    ///    file written before Marco typed the note has nil — rule 3 says a backup is a safety
+    ///    net, not a mirror, so neither may wipe a note or an equipment tag that exists here.
+    ///    Clearing a note stays a thing you do in the app, not something a stale file does.
+    ///    `MergeSummary` needs nothing new: it counts a touched exercise/set as updated
+    ///    regardless of which fields moved.
     ///
     /// The denormalised `nameKey` / `muscleSearchText` are refreshed through
     /// `Exercise.setName(_:)` / `setTags(_:)`, the only writers allowed to touch them.
@@ -108,17 +116,27 @@ import os
                 exercise.isUnilateral = record.isUnilateral
                 exercise.setTags(record.muscleTags)
                 exercise.createdAt = record.createdAt
+                // Rule 7: only what the file states. `setNotes` normalises; the equipment raw
+                // value is assigned straight through so an unknown tag from a newer build
+                // survives instead of being flattened by `Equipment(rawValue:)`.
+                if let notes = record.notes { exercise.setNotes(notes) }
+                if let equipment = record.equipment { exercise.equipmentRawValue = equipment }
                 summary.exercisesUpdated += 1
             } else {
                 let created = Exercise(
                     name: record.name,
                     isUnilateral: record.isUnilateral,
                     tags: record.muscleTags,
+                    notes: record.notes,
                     createdAt: record.createdAt
                 )
                 // The initializer mints a fresh UUID; the backup's id is the identity that
                 // makes a repeated merge idempotent, so overwrite it before inserting.
                 created.id = record.id
+                // Not `created.equipment = …`: the raw value is stored as written, so a tag
+                // this build does not know (a backup from a newer one) is preserved rather
+                // than dropped. `Exercise.equipment` reads it back as nil until it is known.
+                created.equipmentRawValue = record.equipment
                 context.insert(created)
                 exercise = created
                 summary.exercisesInserted += 1
@@ -144,6 +162,8 @@ import os
                     existing.repsRight = entryRecord.repsRight
                     existing.executionID = executionID
                     existing.setIndex = setIndex
+                    // Rule 7 again: a record without a note leaves an existing one alone.
+                    if let notes = entryRecord.notes { existing.setNotes(notes) }
                     if existing.exercise !== exercise {
                         existing.exercise = exercise
                     }
@@ -155,7 +175,8 @@ import os
                         reps: entryRecord.reps,
                         repsRight: entryRecord.repsRight,
                         executionID: executionID,
-                        setIndex: setIndex
+                        setIndex: setIndex,
+                        notes: entryRecord.notes
                     )
                     entry.id = entryRecord.id
                     context.insert(entry)
