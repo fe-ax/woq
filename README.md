@@ -104,5 +104,4 @@ GPL-3.0.
 
 ---
 
-This application was built by Claude, Anthropic's AI model, working in Claude Code under the direction of
-Marco Stuurman, in September 2026.
+This application was built by Claude, Anthropic's AI model, working in Claude Code, in September 2026.
