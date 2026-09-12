@@ -241,25 +241,28 @@ struct InProgressCard: View {
     /// way, since `CompactStepperField` outsets their content shape.
     ///
     /// Unilateral needs three fields, and three never fit next to the buttons
-    /// (130 + 96 + 96 + 78 plus gaps), so the shared weight keeps the buttons
-    /// company on the first row and Reps L / Reps R sit underneath.
+    /// (130 + 96 + 96 + 78 plus gaps), so the shared weight has the first row to
+    /// itself and Reps L / Reps R share the second one with the buttons
+    /// (96 + 96 + 78 plus two 10 pt gaps is 290). The buttons sit in the card's
+    /// bottom corner in both layouts — Marco's phone feedback (2026-09-12):
+    /// next to the weight they hung in the middle of the card's right side.
     @ViewBuilder
     private var fieldsRow: some View {
         if exercise.isUnilateral {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
                     weightField
-                    actionButtons
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    Spacer(minLength: 0)
                 }
-                // The branch's dashed node belongs on the *weight* box: it is the
-                // row the plus and the checkmark act on.
+                // The branch's dashed node stays on the *weight* box: the set
+                // being typed starts there, whichever row holds the buttons.
                 .setBranchAnchor(.current)
 
                 HStack(alignment: .bottom, spacing: 10) {
                     repsLeftField
                     repsRightField
-                    Spacer(minLength: 0)
+                    actionButtons
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
         } else {
