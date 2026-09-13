@@ -526,17 +526,18 @@ struct MainScreen: View {
     /// "Continue" on the last finished row (PLAN.md section 2, "Reopen"): the
     /// checkmark tapped too early, undone. The store takes the execution back
     /// and hands its sets over; they become the card's pending list, and the
-    /// fields start as the execution's LAST set — the numbers that were in the
-    /// fields when the checkmark was tapped — so the card looks like it did
-    /// just before that tap, with that set now listed. Refused like a start
-    /// while something else is in progress.
+    /// fields start as they do after a plus (2026-09-13): the last set's weight
+    /// with the reps box empty. So the card shows a plain "✓" that would save
+    /// the list back exactly as it was, and nothing can be logged twice; the
+    /// next set's reps are typed or stepped in. Refused like a start while
+    /// something else is in progress.
     private func reopen(_ exercise: Exercise, proxy: ScrollViewProxy) {
         let result = withAnimation(.snappy) { store.reopenLastExecution(of: exercise) }
         switch result {
         case .reopened(let sets):
             startHapticCount += 1
             keptDrafts.removeValue(forKey: exercise.id)
-            let fields = sets.last.map {
+            var fields = sets.last.map {
                 SetDraft.prefilled(
                     weightHalfKilos: $0.set.weightHalfKilos,
                     reps: $0.set.reps,
@@ -544,6 +545,7 @@ struct MainScreen: View {
                     isUnilateral: exercise.isUnilateral
                 )
             } ?? prefilledDraft(for: exercise)
+            fields.clearReps()
             let next = CardDraft(fields: fields, pending: sets)
             pendingDraft = next
             card = next
@@ -561,13 +563,14 @@ struct MainScreen: View {
     /// become set N of this execution and the list on the card grows, but
     /// nothing is stored yet — the checkmark writes the whole execution.
     ///
-    /// The fields are left exactly as they are: the next set of the same
-    /// exercise is usually the same numbers, so "3 × 40 kg × 10" is plus, plus,
-    /// checkmark without typing. Focus drops so the list is visible above the
-    /// keyboard and the just-added row is not hidden behind it.
+    /// The weight stays and the reps are cleared (`CardDraft.addPendingSet`,
+    /// 2026-09-13): the next set's reps are stepped or typed fresh, and the
+    /// checkmark drops to plain "finish" until they are. Focus drops so the
+    /// list is visible above the keyboard and the just-added row is not hidden
+    /// behind it.
     private func addSet(_ exercise: Exercise) {
         guard case .success(let set) = card.fields.validate(isUnilateral: exercise.isUnilateral) else { return }
-        withAnimation(.snappy) { card.pending.append(PendingSet(set: set)) }
+        withAnimation(.snappy) { card.addPendingSet(set) }
         focus = nil
         addSetHapticCount += 1
     }
@@ -594,13 +597,17 @@ struct MainScreen: View {
         card = CardDraft()
     }
 
-    /// The checkmark: the fields are the last set, and pending + current are
-    /// written as ONE execution (one store write, one debounced backup).
-    private func finalize(_ exercise: Exercise, with set: ValidatedSet) {
+    /// The checkmark: with reps typed the fields are the last set ("+✓"), with
+    /// the reps box empty the pending list is saved as it is ("✓", `set` nil,
+    /// 2026-09-13). Either way pending + current are written as ONE execution
+    /// (one store write, one debounced backup). An empty list cannot happen —
+    /// the button is disabled for it — but the store would refuse it anyway.
+    private func finalize(_ exercise: Exercise, with set: ValidatedSet?) {
         let id = exercise.id
         focus = nil
         keptDrafts.removeValue(forKey: id)
-        let sets = card.pending + [PendingSet(set: set)]
+        let sets = card.pending + (set.map { [PendingSet(set: $0)] } ?? [])
+        guard !sets.isEmpty else { return }
         withAnimation(.snappy) { _ = store.finalize(exercise, with: sets) }
         successHapticCount += 1
         card = CardDraft()

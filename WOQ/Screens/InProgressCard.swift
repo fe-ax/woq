@@ -19,12 +19,19 @@ import UIKit
 ///
 /// Revision 2026-09-12 (PLAN.md "Multi-set executions"): one visit to the card
 /// can log several sets. The punched plus next to the checkmark commits the
-/// current fields as set N and leaves the numbers in place for set N+1; the
-/// committed sets are listed above the fields, each with a small × that takes it
-/// back. The checkmark takes the fields as the last set and hands the whole list
+/// current fields as set N; the committed sets are listed above the fields,
+/// each with a small × that takes it back. The checkmark hands the whole list
 /// to `MainScreen`, which writes it as ONE execution — so a session is one store
 /// write and one debounced backup, and the pending list is view state that a
 /// put-back keeps and a quit loses (same rule as the fields, PLAN.md 3.4/3.6).
+///
+/// Revision 2026-09-13 (Marco, after "+" next to "+✓" kept confusing): the plus
+/// clears the reps box (the weight stays). The checkmark then has two modes,
+/// read off the reps box: empty = a plain "✓" that saves the listed sets as
+/// they are; anything typed or stepped in = "+✓", which adds the fields as the
+/// last set and finishes. So "3 × 40 kg × 10" is plus, 10, plus, 10, "+✓" — or
+/// plus, 10, plus, 10, plus, "✓" — and the same numbers can never be logged
+/// twice by a tap on the wrong circle.
 /// The card's muted line and the queue rows therefore show the execution's peak
 /// plus its set count ("3 days ago · 80 kg × 10 · 3 sets").
 struct InProgressCard: View {
@@ -74,7 +81,9 @@ struct InProgressCard: View {
     /// the draft stays the single source of truth for the fields).
     var onAddSet: () -> Void
     var onRemovePendingSet: (PendingSet.ID) -> Void
-    var onFinalize: (ValidatedSet) -> Void
+    /// The checkmark: the fields as the last set ("+✓"), or nil for "finish
+    /// with the pending sets as they are" ("✓", reps box empty).
+    var onFinalize: (ValidatedSet?) -> Void
 
     var body: some View {
         ZStack {
@@ -276,8 +285,8 @@ struct InProgressCard: View {
         }
     }
 
-    /// `[+] [+✓]`: add this set and stay, or add this set and finish (the tiny
-    /// plus on the checkmark says the fields are logged too, 2026-09-13). 6 pt
+    /// `[+] [+✓]` or `[+] [✓]`: add this set and stay, then either add this set
+    /// and finish (reps typed) or finish with the listed sets (reps empty). 6 pt
     /// apart (closer than the 10 pt field gaps, so they read as one pair), bottom-
     /// aligned with the 44 pt input boxes and nudged up by (44 − 36) / 2 so the
     /// circles are centred on the boxes and not on the boxes plus their caption
@@ -300,11 +309,24 @@ struct InProgressCard: View {
         }
     }
 
+    /// Two modes (2026-09-13): "+✓" while the reps box holds anything — adds the
+    /// fields as the last set, so it needs them to validate — and a plain "✓"
+    /// while it is empty, which saves the pending sets as they are and needs at
+    /// least one. The rule lives in `CardDraft.finishAction(isUnilateral:)` so
+    /// it is testable; the glyph follows the reps box alone, so an invalid "+✓"
+    /// shows disabled rather than snapping back to "✓".
     private var checkmark: some View {
-        CheckmarkButton(isEnabled: isValid) {
-            guard case .success(let set) = draft.validate(isUnilateral: exercise.isUnilateral) else { return }
-            onFinalize(set)
+        CheckmarkButton(showsPlus: draft.hasReps, isEnabled: finishAction != .disabled) {
+            switch finishAction {
+            case .addAndFinish(let set): onFinalize(set)
+            case .finishPending: onFinalize(nil)
+            case .disabled: break
+            }
         }
+    }
+
+    private var finishAction: FinishAction {
+        CardDraft(fields: draft, pending: pendingSets).finishAction(isUnilateral: exercise.isUnilateral)
     }
 
     // MARK: - Fields

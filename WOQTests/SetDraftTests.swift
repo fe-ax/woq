@@ -226,4 +226,51 @@ struct SetDraftTests {
         #expect(SetDraft.repsText(fromReps: 10) == "10")
         #expect(SetDraft.parseReps(SetDraft.repsText(fromReps: 999), missing: .repsMissing) == .success(999))
     }
+
+    // MARK: - The two-mode checkmark (2026-09-13)
+
+    @Test("hasReps is true as soon as either reps field holds text")
+    func hasReps() {
+        #expect(!SetDraft(weightText: "40").hasReps)
+        #expect(!SetDraft(repsText: "  ").hasReps)
+        #expect(SetDraft(repsText: "1").hasReps)
+        #expect(SetDraft(repsRightText: "8").hasReps)
+    }
+
+    @Test("clearing the reps keeps the weight")
+    func clearReps() {
+        var draft = SetDraft(weightText: "40", repsText: "10", repsRightText: "9")
+        draft.clearReps()
+        #expect(draft == SetDraft(weightText: "40"))
+    }
+
+    @Test("the plus lists the set and clears the reps")
+    func addPendingSetClearsReps() {
+        let set = ValidatedSet(weightHalfKilos: 80, reps: 10, repsRight: nil)
+        var card = CardDraft(fields: SetDraft(weightText: "40", repsText: "10"))
+
+        card.addPendingSet(set, loggedAt: Fixture.epoch)
+
+        #expect(card.pending.count == 1)
+        #expect(card.pending[0].set == set)
+        #expect(card.pending[0].loggedAt == Fixture.epoch)
+        #expect(card.fields == SetDraft(weightText: "40"))
+    }
+
+    @Test("the checkmark adds and finishes with reps typed, finishes the list without, and is off with nothing to save")
+    func finishAction() {
+        let set = ValidatedSet(weightHalfKilos: 80, reps: 10, repsRight: nil)
+        let typed = SetDraft(weightText: "40", repsText: "10")
+
+        // Reps typed and valid: add this set and finish, pending or not.
+        #expect(CardDraft(fields: typed).finishAction(isUnilateral: false) == .addAndFinish(set))
+        #expect(CardDraft(fields: typed, pending: [PendingSet(set: set)]).finishAction(isUnilateral: false) == .addAndFinish(set))
+        // Reps typed but invalid (right side missing on a unilateral exercise): nothing, even
+        // with sets pending — the typed reps are not silently dropped.
+        #expect(CardDraft(fields: typed, pending: [PendingSet(set: set)]).finishAction(isUnilateral: true) == .disabled)
+        // Reps empty: finish with the pending sets as they are; the weight box is not read.
+        #expect(CardDraft(fields: SetDraft(weightText: "abc"), pending: [PendingSet(set: set)]).finishAction(isUnilateral: false) == .finishPending)
+        // Reps empty and nothing pending: nothing to save.
+        #expect(CardDraft(fields: SetDraft(weightText: "40")).finishAction(isUnilateral: false) == .disabled)
+    }
 }

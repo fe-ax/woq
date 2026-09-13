@@ -3,14 +3,13 @@ import SwiftUI
 /// 36 pt circular finalize button: ink with the glyph punched out when the set
 /// is valid, outlined and disabled when it is not (PLAN.md section 6).
 ///
-/// The glyph is a checkmark with a tiny plus tucked into its top-left corner,
-/// above the short arm (phone feedback 2026-09-13, placement Marco's). The
-/// button does not only finish the exercise, it also logs the fields as the
-/// last set — so next to `AddSetButton`'s plain plus a lone checkmark read as
-/// "finish without this set" and the pair was confusing. The plus is
-/// deliberately small and off to the corner: the checkmark stays the dominant,
-/// centred shape (this is still the finish button), nudged down-right a touch
-/// so the pair as a whole sits in the middle of the circle.
+/// Two glyphs, one button (2026-09-13, Marco's rule after the pair "+" / "+✓"
+/// kept confusing): with `showsPlus` the checkmark carries a tiny plus tucked
+/// into its top-left corner, above the short arm — "add this set and finish".
+/// Without it, a plain centred checkmark — "finish with what is listed". The
+/// card flips `showsPlus` on whether the reps box holds anything, and the
+/// switch animates: the plus scales in at the corner while the check shifts
+/// 1.5 pt down-right so the pair as a whole stays centred in the circle.
 ///
 /// Punched like `AddSetButton` (Marco, 2026-09-13; it started as a solid circle
 /// with a paper glyph): `.blendMode(.destinationOut)` inside a
@@ -20,6 +19,9 @@ import SwiftUI
 /// disabled state cannot be punched (nothing to punch out of a pale card fill),
 /// so it is card fill, ink outline, muted glyph.
 struct CheckmarkButton: View {
+    /// True = "+✓" (add the fields as the last set, then finish); false = "✓"
+    /// (finish with the pending sets as they are).
+    var showsPlus: Bool = true
     var isEnabled: Bool
     var action: () -> Void
 
@@ -33,7 +35,11 @@ struct CheckmarkButton: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .animation(.snappy, value: isEnabled)
-        .accessibilityLabel(String(localized: "Add set and finish"))
+        .accessibilityLabel(
+            showsPlus
+                ? String(localized: "Add set and finish")
+                : String(localized: "Finish")
+        )
     }
 
     @ViewBuilder
@@ -60,16 +66,20 @@ struct CheckmarkButton: View {
         }
     }
 
-    /// The checkmark with the plus in its top-left corner.
+    /// The checkmark, with the plus in its top-left corner when `showsPlus`.
     private var glyph: some View {
         ZStack {
             Image(systemName: "checkmark")
                 .font(.system(size: 15, weight: .bold))
-                .offset(x: 1.5, y: 1.5)
-            Image(systemName: "plus")
-                .font(.system(size: 8, weight: .bold))
-                .offset(x: -7, y: -6.5)
+                .offset(x: showsPlus ? 1.5 : 0, y: showsPlus ? 1.5 : 0)
+            if showsPlus {
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                    .offset(x: -7, y: -6.5)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
+        .animation(.snappy, value: showsPlus)
     }
 }
 
@@ -77,8 +87,10 @@ struct CheckmarkButton: View {
     ZStack {
         Tokens.paper.ignoresSafeArea()
         HStack(spacing: 20) {
-            CheckmarkButton(isEnabled: true) {}
-            CheckmarkButton(isEnabled: false) {}
+            CheckmarkButton(showsPlus: true, isEnabled: true) {}
+            CheckmarkButton(showsPlus: false, isEnabled: true) {}
+            CheckmarkButton(showsPlus: true, isEnabled: false) {}
+            CheckmarkButton(showsPlus: false, isEnabled: false) {}
         }
     }
 }

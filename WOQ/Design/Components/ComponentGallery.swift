@@ -15,6 +15,8 @@ struct ComponentGallery: View {
     @State private var repsText = "10"
     @State private var chips: [Intensity?] = [.primary, .secondary, .stabiliser, nil]
     @State private var checkmarkEnabled = true
+    /// The middle checkmark toggles its own glyph, to show the "+✓" <-> "✓" animation.
+    @State private var checkmarkShowsPlus = true
     @State private var glassIsActive = false
     @State private var undoCount = 0
     @State private var addedSetCount = 0
@@ -164,17 +166,22 @@ struct ComponentGallery: View {
     private var buttons: some View {
         section("Buttons") {
             HStack(spacing: 12) {
-                // The in-progress card's pair, in both states: punched plus
-                // (add a set, card stays) next to the punched checkmark-with-plus
-                // (add the set and finish).
+                // The in-progress card's pair: punched plus (add a set, card
+                // stays) next to the punched checkmark, which is "+✓" while the
+                // reps box holds anything (add the set and finish) and a plain
+                // "✓" otherwise (finish with the listed sets). The middle one
+                // toggles its own glyph on tap.
                 AddSetButton(isEnabled: checkmarkEnabled) {
                     addedSetCount += 1
                 }
                 AddSetButton(isEnabled: false) {}
-                CheckmarkButton(isEnabled: checkmarkEnabled) {
+                CheckmarkButton(showsPlus: true, isEnabled: checkmarkEnabled) {
                     checkmarkEnabled = false
                 }
-                CheckmarkButton(isEnabled: false) {}
+                CheckmarkButton(showsPlus: checkmarkShowsPlus, isEnabled: true) {
+                    checkmarkShowsPlus.toggle()
+                }
+                CheckmarkButton(showsPlus: true, isEnabled: false) {}
                 RoundIconButton(
                     systemName: "arrow.uturn.backward",
                     accessibilityLabel: String(localized: "Put back in the queue")

@@ -68,6 +68,23 @@ nonisolated struct SetDraft: Equatable, Sendable {
             && Self.trimmed(repsRightText).isEmpty
     }
 
+    /// True while either reps field holds text. The card's checkmark rule since
+    /// 2026-09-13: reps typed = "add this set and finish", reps empty = "finish with the
+    /// pending sets". Whether the typed reps are *valid* is a separate question
+    /// (`isComplete`); this only decides which of the two the button is.
+    var hasReps: Bool {
+        !Self.trimmed(repsText).isEmpty || !Self.trimmed(repsRightText).isEmpty
+    }
+
+    /// Empties both reps fields and keeps the weight: the state after a set was committed
+    /// with the plus (2026-09-13), so the next set's reps are typed or stepped fresh and the
+    /// checkmark falls back to plain "finish". The weight stays because the next set is
+    /// usually the same weight.
+    mutating func clearReps() {
+        repsText = ""
+        repsRightText = ""
+    }
+
     /// The weight problem only, for the inline red hint under the weight field.
     /// nil means the weight is acceptable (including empty = bodyweight).
     func weightProblem() -> DraftProblem? {
@@ -291,4 +308,37 @@ nonisolated struct CardDraft: Equatable, Sendable {
         self.fields = fields
         self.pending = pending
     }
+
+    /// The plus: the validated fields join the pending list and the reps are cleared
+    /// (2026-09-13). `set` is the validated form of `fields` — the caller validates, so the
+    /// draft strings stay the single source of truth for what is in the boxes.
+    mutating func addPendingSet(_ set: ValidatedSet, loggedAt: Date = .now) {
+        pending.append(PendingSet(set: set, loggedAt: loggedAt))
+        fields.clearReps()
+    }
+
+    /// What the card's checkmark does right now — the two-mode checkmark Marco asked for on
+    /// 2026-09-13 after "+" next to "+✓" kept confusing. With reps typed the button is "+✓":
+    /// the fields become the last set, so they have to validate. With the reps empty it is a
+    /// plain "✓": the pending list is saved as it is (the weight box is not even read) and
+    /// needs at least one set — an execution without sets does not exist.
+    func finishAction(isUnilateral: Bool) -> FinishAction {
+        if fields.hasReps {
+            guard case .success(let set) = fields.validate(isUnilateral: isUnilateral) else {
+                return .disabled
+            }
+            return .addAndFinish(set)
+        }
+        return pending.isEmpty ? .disabled : .finishPending
+    }
+}
+
+/// What the in-progress card's checkmark will do, from `CardDraft.finishAction(isUnilateral:)`.
+nonisolated enum FinishAction: Equatable, Sendable {
+    /// Nothing to save (reps typed but invalid, or reps empty and nothing pending).
+    case disabled
+    /// Reps empty, pending sets present: save the pending list as the execution.
+    case finishPending
+    /// Reps typed and valid: the fields become the last set, then save.
+    case addAndFinish(ValidatedSet)
 }
