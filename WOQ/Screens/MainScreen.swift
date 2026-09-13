@@ -12,6 +12,7 @@ import SwiftUI
 struct MainScreen: View {
     @Environment(QueueStore.self) private var store
     @Environment(BackupFolder.self) private var backupFolder
+    @Environment(\.scenePhase) private var scenePhase
 
     @Query(sort: QueueStore.sortDescriptors, animation: .snappy)
     private var exercises: [Exercise]
@@ -59,6 +60,15 @@ struct MainScreen: View {
 
     @State private var hint: String?
     @State private var flashExerciseID: UUID?
+
+    /// Wall clock for the "Continue" window on the last finished row (PLAN.md
+    /// section 2, "Reopen", 2026-09-13). Refreshed only when it matters: when
+    /// the window closes (`.task(id: reopenDeadline)`) and when the app comes
+    /// back to the foreground — not every second, so the queue is not
+    /// re-rendered for nothing. Between refreshes it lags `.now`, which
+    /// `QueueStore.canReopen` tolerates (a checkmark stamped after this clock
+    /// was read still counts as inside the window).
+    @State private var now = Date.now
 
     // Haptic triggers must be counters, not Bools (PLAN.md pitfall 14).
     @State private var startHapticCount = 0
@@ -185,6 +195,21 @@ struct MainScreen: View {
         )
         .task { isBannerSnoozed = BackupBanner.isSnoozed() }
         .animation(.snappy, value: showsBackupBanner)
+        // Hides the "Continue" chip the moment its 15 minutes are up. The id
+        // restarts the sleep for every new checkmark; nil means nothing to
+        // wait for.
+        .task(id: reopenDeadline) {
+            guard let deadline = reopenDeadline else { return }
+            let wait = deadline.timeIntervalSinceNow
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard !Task.isCancelled else { return }
+            now = .now
+        }
+        // The sleeping task does not run while the app is suspended, so an
+        // expired chip could survive a long background stay; catch up on return.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { now = .now }
+        }
     }
 
     /// PLAN.md section 2 "Backups": nudge Marco only when there is something to
@@ -260,7 +285,10 @@ struct MainScreen: View {
     // MARK: - Scroll content
 
     private var queueScroll: some View {
-        ScrollViewReader { proxy in
+        // Resolved once per render, not once per row: `reopenable` sorts the queue.
+        let reopenableID = reopenable?.id
+
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if let inProgress {
@@ -268,7 +296,7 @@ struct MainScreen: View {
                     }
 
                     ForEach(queued, id: \.id) { exercise in
-                        queueRow(exercise, proxy: proxy)
+                        queueRow(exercise, proxy: proxy, offersContinue: exercise.id == reopenableID)
                     }
 
                     emptyState
@@ -336,7 +364,7 @@ struct MainScreen: View {
         }
     }
 
-    private func queueRow(_ exercise: Exercise, proxy: ScrollViewProxy) -> some View {
+    private func queueRow(_ exercise: Exercise, proxy: ScrollViewProxy, offersContinue: Bool) -> some View {
         let index = queued.firstIndex { $0.id == exercise.id } ?? 0
 
         return HStack(alignment: .top, spacing: 0) {
@@ -351,7 +379,8 @@ struct MainScreen: View {
                 exercise: exercise,
                 isFlashing: flashExerciseID == exercise.id,
                 onTap: { start(exercise, proxy: proxy) },
-                onLongPress: { detailExercise = exercise }
+                onLongPress: { detailExercise = exercise },
+                onContinue: offersContinue ? { reopen(exercise, proxy: proxy) } : nil
             )
         }
         .id(exercise.id)
@@ -395,6 +424,26 @@ struct MainScreen: View {
 
     private var inProgress: Exercise? {
         store.inProgressExercise(in: exercises)
+    }
+
+    /// The one queue row that offers "Continue" (PLAN.md section 2, "Reopen",
+    /// 2026-09-13): the exercise finished most recently, while its checkmark is
+    /// less than `QueueStore.reopenWindow` old. `ordered.last` is that exercise
+    /// (never performed sorts first, the newest `lastPerformedAt` last). Nothing
+    /// is offered while it is in progress again, or while it has no execution
+    /// to take back (a fresh add whose first set was left empty).
+    private var reopenable: Exercise? {
+        guard let last = ordered.last,
+              last.id != inProgress?.id,
+              last.lastExecution != nil,
+              QueueStore.canReopen(lastPerformedAt: last.lastPerformedAt, now: now)
+        else { return nil }
+        return last
+    }
+
+    /// When the current "Continue" offer expires; nil while there is none.
+    private var reopenDeadline: Date? {
+        reopenable?.lastPerformedAt?.addingTimeInterval(QueueStore.reopenWindow)
     }
 
     private var query: String {
@@ -474,6 +523,40 @@ struct MainScreen: View {
         }
     }
 
+    /// "Continue" on the last finished row (PLAN.md section 2, "Reopen"): the
+    /// checkmark tapped too early, undone. The store takes the execution back
+    /// and hands its sets over; they become the card's pending list, and the
+    /// fields start as the execution's LAST set — the numbers that were in the
+    /// fields when the checkmark was tapped — so the card looks like it did
+    /// just before that tap, with that set now listed. Refused like a start
+    /// while something else is in progress.
+    private func reopen(_ exercise: Exercise, proxy: ScrollViewProxy) {
+        let result = withAnimation(.snappy) { store.reopenLastExecution(of: exercise) }
+        switch result {
+        case .reopened(let sets):
+            startHapticCount += 1
+            keptDrafts.removeValue(forKey: exercise.id)
+            let fields = sets.last.map {
+                SetDraft.prefilled(
+                    weightHalfKilos: $0.set.weightHalfKilos,
+                    reps: $0.set.reps,
+                    repsRight: $0.set.repsRight,
+                    isUnilateral: exercise.isUnilateral
+                )
+            } ?? prefilledDraft(for: exercise)
+            let next = CardDraft(fields: fields, pending: sets)
+            pendingDraft = next
+            card = next
+            focus = nil
+            Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
+        case .refused(let current):
+            hint = String(localized: "Finish or put back \(current.name) first")
+            warningHapticCount += 1
+        case .nothingToReopen:
+            break
+        }
+    }
+
     /// The card's plus (PLAN.md "Multi-set executions"): the current fields
     /// become set N of this execution and the list on the card grows, but
     /// nothing is stored yet — the checkmark writes the whole execution.
@@ -541,12 +624,11 @@ struct MainScreen: View {
     /// `repsRight`; both sides then start from the bilateral reps.
     private func prefilledDraft(for exercise: Exercise?) -> SetDraft {
         guard let exercise, let entry = exercise.lastExecution?.peak else { return SetDraft() }
-        return SetDraft(
-            weightText: SetDraft.weightText(fromHalfKilos: entry.weightHalfKilos),
-            repsText: SetDraft.repsText(fromReps: entry.reps),
-            repsRightText: exercise.isUnilateral
-                ? SetDraft.repsText(fromReps: entry.repsRight ?? entry.reps)
-                : ""
+        return SetDraft.prefilled(
+            weightHalfKilos: entry.weightHalfKilos,
+            reps: entry.reps,
+            repsRight: entry.repsRight,
+            isUnilateral: exercise.isUnilateral
         )
     }
 

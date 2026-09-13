@@ -194,6 +194,17 @@ nonisolated struct SetDraft: Equatable, Sendable {
         return "\(reps)"
     }
 
+    /// The fields for repeating a set (the card's prefill): its numbers as text, an empty
+    /// weight for bodyweight, and the right side only on a unilateral exercise — falling back
+    /// to the left reps for a set logged before the exercise was switched to L/R.
+    static func prefilled(weightHalfKilos: Int?, reps: Int, repsRight: Int?, isUnilateral: Bool) -> SetDraft {
+        SetDraft(
+            weightText: weightText(fromHalfKilos: weightHalfKilos),
+            repsText: repsText(fromReps: reps),
+            repsRightText: isUnilateral ? repsText(fromReps: repsRight ?? reps) : ""
+        )
+    }
+
     // MARK: - Stepping (+/- buttons)
 
     /// Steps the weight text by `halfSteps` half-kilos (one tap = +/-1 = 0.5 kg).
@@ -243,15 +254,24 @@ nonisolated struct SetDraft: Equatable, Sendable {
 /// ("40 kg × 10" twice) must stay two distinct rows in the list and in `ForEach`.
 /// `loggedAt` is when the plus was tapped, and becomes that set's `Entry.date`, so the
 /// history keeps the real per-set timing instead of stamping them all at the checkmark.
+///
+/// Since 2026-09-13 a pending set can also come the other way: "Continue" on the last
+/// finished row takes an execution back out of the store (`QueueStore.reopenLastExecution`)
+/// and its entries become pending sets again, keeping their dates and their notes.
 nonisolated struct PendingSet: Identifiable, Sendable, Equatable {
     let id: UUID
     var set: ValidatedSet
     var loggedAt: Date
+    /// The set's note, carried through a reopen so the second checkmark writes it back.
+    /// Always nil for a set committed with the plus: notes are only typed afterwards, in the
+    /// detail sheet, and the card never shows them.
+    var notes: String?
 
-    init(set: ValidatedSet, loggedAt: Date = .now) {
+    init(set: ValidatedSet, loggedAt: Date = .now, notes: String? = nil) {
         self.id = UUID()
         self.set = set
         self.loggedAt = loggedAt
+        self.notes = notes
     }
 }
 

@@ -113,7 +113,8 @@ import os
     /// The pending sets come from the card (plus, plus, … checkmark) and are saved in ONE go:
     /// one `save()`, so one debounced backup, and the sets can never end up half-written.
     /// Each set keeps the moment its plus was tapped as its `Entry.date` (`PendingSet.loggedAt`),
-    /// while `date` is the checkmark. An empty list is a no-op: there is no such thing as an
+    /// while `date` is the checkmark; a set that came back through `reopenLastExecution(of:)`
+    /// also keeps its note. An empty list is a no-op: there is no such thing as an
     /// execution without sets (the checkmark always contributes one), so it is logged and
     /// nothing is touched.
     @discardableResult
@@ -134,7 +135,8 @@ import os
                 reps: pending.set.reps,
                 repsRight: pending.set.repsRight,
                 executionID: executionID,
-                setIndex: index
+                setIndex: index,
+                notes: pending.notes
             )
             modelContext.insert(entry)
             entry.exercise = exercise
@@ -150,6 +152,71 @@ import os
         exercise.inProgressSince = nil
         save()
         return entries
+    }
+
+    // MARK: - Reopen (the accidental checkmark, 2026-09-13)
+
+    /// How long after the checkmark the last finished row still offers "Continue":
+    /// 15 minutes, decided with Marco on 2026-09-13.
+    nonisolated static let reopenWindow: TimeInterval = 15 * 60
+
+    /// True while an exercise finished at `lastPerformedAt` may still be reopened at `now`.
+    /// Never performed (nil) never can. A negative interval counts as inside the window: the
+    /// caller's clock may have been captured a moment before the checkmark was stamped.
+    nonisolated static func canReopen(lastPerformedAt: Date?, now: Date) -> Bool {
+        guard let lastPerformedAt else { return false }
+        return now.timeIntervalSince(lastPerformedAt) < reopenWindow
+    }
+
+    nonisolated enum ReopenResult: Equatable {
+        /// The newest execution is out of the store; its sets are returned oldest first,
+        /// ready to be the card's pending list.
+        case reopened([PendingSet])
+        /// Another exercise is in progress; nothing changed (PLAN.md 3.3).
+        case refused(current: Exercise)
+        /// The exercise has no execution to take back.
+        case nothingToReopen
+    }
+
+    /// Takes the newest execution back: the undo for a checkmark tapped too early ("Continue"
+    /// on the last finished queue row, PLAN.md section 2 "Reopen", 2026-09-13).
+    ///
+    /// The execution's entries are deleted, `lastPerformedAt` falls back to the newest
+    /// remaining set (nil when nothing is left — the same rule as `deleteEntry`, the previous
+    /// checkmark time itself is not stored), the exercise becomes the in-progress one and its
+    /// sets are handed back as `PendingSet`s, each with its `Entry.date` as `loggedAt` and its
+    /// note, so the next checkmark rewrites the execution as it was plus whatever is added.
+    /// One `save()`, one backup. The one-in-progress rule holds: with another exercise in
+    /// progress nothing changes. The 15-minute window is the row's business (`canReopen`);
+    /// the store reopens whatever it is asked to.
+    func reopenLastExecution(of exercise: Exercise) -> ReopenResult {
+        guard let execution = exercise.lastExecution else { return .nothingToReopen }
+        if let current = inProgressExercise(), current !== exercise {
+            return .refused(current: current)
+        }
+
+        let sets = execution.sets.map { entry in
+            PendingSet(
+                set: ValidatedSet(
+                    weightHalfKilos: entry.weightHalfKilos,
+                    reps: entry.reps,
+                    repsRight: entry.repsRight
+                ),
+                loggedAt: entry.date,
+                notes: entry.notes
+            )
+        }
+
+        let removed = Set(execution.sets.map(\.id))
+        for entry in execution.sets {
+            entry.exercise = nil
+            modelContext.delete(entry)
+        }
+        let remaining = exercise.entries.filter { !removed.contains($0.id) }
+        exercise.lastPerformedAt = remaining.map(\.date).max()
+        exercise.inProgressSince = .now
+        save()
+        return .reopened(sets)
     }
 
     /// Single-set convenience: one set is simply an execution of one (`addExercise`'s

@@ -355,6 +355,148 @@ struct InProgressRulesTests {
         #expect(exercise.lastPerformedAt == Fixture.date(day: 1))
     }
 
+    // MARK: - Reopen (the accidental checkmark, 2026-09-13)
+
+    @Test("finalizing writes a pending set's note")
+    func finalizeWritesNotes() throws {
+        let (container, store) = try makeStore()
+        let exercise = Fixture.exercise("Bench press", in: container.mainContext)
+        var pending = Fixture.pending(80, 10, at: Fixture.date(day: 1))
+        pending.notes = "  belt on  "
+
+        let entries = store.finalize(exercise, with: [pending], at: Fixture.date(day: 1))
+
+        #expect(entries[0].notes == "belt on")
+    }
+
+    @Test("reopening takes the newest execution back as pending sets and marks in progress")
+    func reopenReturnsSetsAndDeletesThem() throws {
+        let (container, store) = try makeStore()
+        let exercise = Fixture.exercise("Bench press", in: container.mainContext)
+        store.finalize(exercise, with: Fixture.set(70, 10), at: Fixture.date(day: 1))
+        let entries = store.finalize(
+            exercise,
+            with: [
+                Fixture.pending(80, 10, at: Fixture.date(day: 5)),
+                Fixture.pending(80, 8, at: Fixture.date(day: 5, second: 120)),
+            ],
+            at: Fixture.date(day: 5, second: 200)
+        )
+        store.updateEntry(entries[1], weightHalfKilos: 80, reps: 8, repsRight: nil, notes: "grip slipped")
+
+        let result = store.reopenLastExecution(of: exercise)
+
+        guard case .reopened(let sets) = result else {
+            Issue.record("expected .reopened, got \(result)")
+            return
+        }
+        #expect(sets.map(\.set) == [Fixture.set(80, 10), Fixture.set(80, 8)])
+        #expect(sets.map(\.loggedAt) == [Fixture.date(day: 5), Fixture.date(day: 5, second: 120)])
+        #expect(sets.map(\.notes) == [nil, "grip slipped"])
+        // The execution is gone; the older one stays and owns the queue position again.
+        #expect(exercise.executions.count == 1)
+        #expect(exercise.entries.count == 1)
+        #expect(exercise.lastPerformedAt == Fixture.date(day: 1))
+        #expect(exercise.inProgressSince != nil)
+        #expect(store.inProgressExercise() === exercise)
+    }
+
+    @Test("reopening the only execution leaves the exercise never performed")
+    func reopenOnlyExecutionClearsDate() throws {
+        let (container, store) = try makeStore()
+        let exercise = Fixture.exercise("Bench press", in: container.mainContext)
+        store.finalize(exercise, with: Fixture.set(80, 10), at: Fixture.date(day: 1))
+
+        let result = store.reopenLastExecution(of: exercise)
+
+        guard case .reopened(let sets) = result else {
+            Issue.record("expected .reopened, got \(result)")
+            return
+        }
+        #expect(sets.count == 1)
+        #expect(exercise.entries.isEmpty)
+        #expect(exercise.lastPerformedAt == nil)
+        #expect(exercise.inProgressSince != nil)
+    }
+
+    @Test("reopening is refused while another exercise is in progress")
+    func reopenRefusedWhenBusy() throws {
+        let (container, store) = try makeStore()
+        let context = container.mainContext
+        let finished = Fixture.exercise("Bench press", in: context)
+        store.finalize(finished, with: Fixture.set(80, 10), at: Fixture.date(day: 1))
+        let running = Fixture.exercise("Squat", in: context)
+        store.start(running)
+
+        let result = store.reopenLastExecution(of: finished)
+
+        #expect(result == .refused(current: running))
+        // Nothing changed (PLAN.md 3.3).
+        #expect(finished.entries.count == 1)
+        #expect(finished.lastPerformedAt == Fixture.date(day: 1))
+        #expect(finished.inProgressSince == nil)
+        #expect(store.inProgressExercise() === running)
+    }
+
+    @Test("reopening an exercise without executions does nothing")
+    func reopenNothing() throws {
+        let (container, store) = try makeStore()
+        let exercise = Fixture.exercise("Bench press", in: container.mainContext)
+
+        #expect(store.reopenLastExecution(of: exercise) == .nothingToReopen)
+        #expect(exercise.inProgressSince == nil)
+    }
+
+    @Test("a reopened execution finalizes again as one execution with its sets intact")
+    func reopenThenFinalizeRoundTrip() throws {
+        let (container, store) = try makeStore()
+        let exercise = Fixture.exercise("Bench press", in: container.mainContext)
+        let first = store.finalize(
+            exercise,
+            with: [
+                Fixture.pending(80, 10, at: Fixture.date(day: 5)),
+                Fixture.pending(80, 8, at: Fixture.date(day: 5, second: 120)),
+            ],
+            at: Fixture.date(day: 5, second: 200)
+        )
+        store.updateEntry(first[0], weightHalfKilos: 80, reps: 10, repsRight: nil, notes: "paused reps")
+        guard case .reopened(let sets) = store.reopenLastExecution(of: exercise) else {
+            Issue.record("expected .reopened")
+            return
+        }
+
+        let entries = store.finalize(
+            exercise,
+            with: sets + [Fixture.pending(80, 6, at: Fixture.date(day: 5, second: 400))],
+            at: Fixture.date(day: 5, second: 420)
+        )
+
+        #expect(entries.count == 3)
+        #expect(exercise.executions.count == 1)
+        #expect(exercise.lastExecution?.setCount == 3)
+        #expect(entries.map(\.setIndex) == [0, 1, 2])
+        #expect(entries.map(\.date) == [
+            Fixture.date(day: 5),
+            Fixture.date(day: 5, second: 120),
+            Fixture.date(day: 5, second: 400),
+        ])
+        #expect(entries.map(\.notes) == ["paused reps", nil, nil])
+        #expect(exercise.lastPerformedAt == Fixture.date(day: 5, second: 420))
+        #expect(exercise.inProgressSince == nil)
+    }
+
+    @Test("the Continue window is 15 minutes from the checkmark")
+    func reopenWindow() {
+        let checkmark = Fixture.date(day: 1)
+        #expect(QueueStore.canReopen(lastPerformedAt: checkmark, now: checkmark))
+        #expect(QueueStore.canReopen(lastPerformedAt: checkmark, now: checkmark.addingTimeInterval(14 * 60 + 59)))
+        #expect(!QueueStore.canReopen(lastPerformedAt: checkmark, now: checkmark.addingTimeInterval(15 * 60)))
+        #expect(!QueueStore.canReopen(lastPerformedAt: checkmark, now: checkmark.addingTimeInterval(60 * 60)))
+        // A clock read just before the checkmark was stamped still counts as inside.
+        #expect(QueueStore.canReopen(lastPerformedAt: checkmark, now: checkmark.addingTimeInterval(-5)))
+        #expect(!QueueStore.canReopen(lastPerformedAt: nil, now: checkmark))
+    }
+
     // MARK: - Names
 
     @Test("names are unique case-insensitively")
