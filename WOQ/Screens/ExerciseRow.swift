@@ -9,18 +9,17 @@ import SwiftUI
 /// plus `onTapGesture` / `onLongPressGesture`.
 ///
 /// "Continue" (2026-09-13): for 15 minutes after its checkmark the row that
-/// was finished last carries a blue chip at its trailing edge. It is a real
-/// `Button` inside the tappable card, so a tap on it is the chip's and a tap
-/// anywhere else is still "start". Blue because it leads back to the
-/// in-progress state; a 1.5 pt ink outline (the paper button's, not the
-/// hairline of the "peak" chip) so it reads as something to tap.
+/// was finished last carries a blue play circle at its trailing edge. It is a
+/// real `Button` inside the tappable card, so a tap on it is the button's and
+/// a tap anywhere else is still "start". Blue because it leads back to the
+/// in-progress state; a symbol rather than a word (Marco, 2026-09-13).
 struct ExerciseRow: View {
     var exercise: Exercise
     /// Green finalize flash (PLAN.md 3.5); fades out when it turns false.
     var isFlashing: Bool = false
     var onTap: () -> Void
     var onLongPress: () -> Void
-    /// Set only on the row that may take its last execution back; nil hides the chip.
+    /// Set only on the row that may take its last execution back; nil hides the button.
     var onContinue: (() -> Void)? = nil
 
     var body: some View {
@@ -79,24 +78,23 @@ struct ExerciseRow: View {
         .padding(.vertical, Tokens.rowSpacing / 2)
     }
 
-    /// The blue "Continue" chip. The drawn pill is compact; the tap target is
-    /// padded out to 44 pt high so it is easy to hit next to the row's own tap.
+    /// The blue "Continue" button: a 32 pt circle (the put-back button's size)
+    /// with a play triangle — "resume", the one symbol that says continue
+    /// rather than undo. Deliberately not a U-turn arrow: that already means
+    /// "back to the queue" on the card, and this does the opposite. Blue fill
+    /// with the 1.5 pt ink outline (heavier than `RoundIconButton`'s hairline)
+    /// so it reads as a primary control; the tap target is padded out to 44 pt.
     private func continueButton(_ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(String(localized: "Continue"))
-                .appFont(.subheadline, weight: .semibold)
+            Image(systemName: "play.fill")
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Tokens.inkOnPastel)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
-                        .fill(Tokens.blue)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Tokens.radius, style: .continuous)
-                        .strokeBorder(Tokens.ink, lineWidth: Tokens.line)
-                )
-                .frame(minHeight: 44)
+                // A triangle's optical centre sits right of its frame's centre.
+                .offset(x: 1)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Tokens.blue))
+                .overlay(Circle().strokeBorder(Tokens.ink, lineWidth: Tokens.line))
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
