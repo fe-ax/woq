@@ -165,7 +165,7 @@ struct ComponentGallery: View {
         section("Buttons") {
             HStack(spacing: 12) {
                 // The in-progress card's pair, in both states: punched plus
-                // (add a set, card stays) next to the solid checkmark (finish).
+                // (add a set, card stays) next to the solid "+✓" (add the set and finish).
                 AddSetButton(isEnabled: checkmarkEnabled) {
                     addedSetCount += 1
                 }

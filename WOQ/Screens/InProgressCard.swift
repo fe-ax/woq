@@ -276,8 +276,9 @@ struct InProgressCard: View {
         }
     }
 
-    /// `[+] [✓]`: add this set and stay, or add this set and finish. 6 pt apart
-    /// (closer than the 10 pt field gaps, so they read as one pair), bottom-
+    /// `[+] [+✓]`: add this set and stay, or add this set and finish (the tiny
+    /// plus on the checkmark says the fields are logged too, 2026-09-13). 6 pt
+    /// apart (closer than the 10 pt field gaps, so they read as one pair), bottom-
     /// aligned with the 44 pt input boxes and nudged up by (44 − 36) / 2 so the
     /// circles are centred on the boxes and not on the boxes plus their caption
     /// labels.
