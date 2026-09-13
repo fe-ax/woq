@@ -4,18 +4,20 @@ import SwiftUI
 /// `CheckmarkButton` on the in-progress card (PLAN.md "Multi-set executions",
 /// 2026-09-12).
 ///
-/// Both buttons are the same size and sit next to each other, so they have to
-/// read as two different actions at a glance. The checkmark is a *solid* ink
-/// circle with a paper glyph (it ends the exercise); the plus is a *punched* ink
-/// circle in the header's style (`PunchedIconButton`), so the water shader
-/// behind the card shows through the glyph — the set is added, the card stays.
+/// Both buttons are the same size and sit next to each other. Both are
+/// *punched* ink circles in the header's style (`PunchedIconButton`), so the
+/// water shader behind the card shows through the glyph; they differ by their
+/// glyphs alone — a plain plus here (the set is added, the card stays), a
+/// checkmark with a small plus in its corner there (the set is added and the
+/// exercise ends). Until 2026-09-13 the checkmark was a solid circle with a
+/// paper glyph; Marco asked for the same punch on both.
 ///
 /// The punch is a `.blendMode(.destinationOut)` inside a `.compositingGroup()`
 /// (PLAN.md pitfall 16): without the group the blend clears everything drawn
 /// behind the button, water and card outline included. The disabled state can
 /// therefore not be punched (there is nothing to punch out of a pale card fill
-/// that would still read as a plus), so it mirrors `CheckmarkButton` instead:
-/// card fill, ink outline, muted glyph.
+/// that would still read as a plus), so both buttons fall back to card fill,
+/// ink outline, muted glyph.
 struct AddSetButton: View {
     var isEnabled: Bool
     var action: () -> Void
