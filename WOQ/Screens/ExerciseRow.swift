@@ -110,9 +110,11 @@ struct ExerciseRow: View {
 /// The "bring it back up" glyph Marco described on 2026-09-13 ("i|> but
 /// pointing up"): from the bottom, a short bar, a longer bar above it, and a
 /// solid triangle pointing up on top — the finished row rising back out of
-/// the queue onto the card. Drawn with shapes, not an SF Symbol: there is no
-/// symbol with this stack of bars, and the stack is the point. 14 pt tall,
-/// which is `RoundIconButton`'s glyph size for a 32 pt circle.
+/// the queue onto the card. The widths taper, 6 / 9 / 12 pt, so the middle
+/// bar sits between the bottom bar and the triangle (Marco's tweak). Drawn
+/// with shapes, not an SF Symbol: there is no symbol with this stack of bars,
+/// and the stack is the point. 14 pt tall, which is `RoundIconButton`'s glyph
+/// size for a 32 pt circle.
 private struct RiseGlyph: View {
     var color: Color
 
@@ -123,7 +125,7 @@ private struct RiseGlyph: View {
                 .frame(width: 12, height: 7)
             Capsule()
                 .fill(color)
-                .frame(width: 12, height: 2)
+                .frame(width: 9, height: 2)
             Capsule()
                 .fill(color)
                 .frame(width: 6, height: 2)
