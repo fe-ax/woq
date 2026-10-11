@@ -62,33 +62,45 @@ import os
 
     // MARK: - In progress
 
-    /// The in-progress exercise inside a list the view already has (PLAN.md 5).
-    func inProgressExercise(in exercises: [Exercise]) -> Exercise? {
-        exercises.first { $0.inProgressSince != nil }
+    /// How many exercises may be in progress at once (3, Marco 2026-10-11; it was 1).
+    nonisolated static let maxInProgress = 3
+
+    /// The in-progress exercises inside a list the view already has, the one started
+    /// first on top (PLAN.md 5).
+    func inProgressExercises(in exercises: [Exercise]) -> [Exercise] {
+        exercises
+            .filter { $0.inProgressSince != nil }
+            .sorted { ($0.inProgressSince ?? .distantFuture) < ($1.inProgressSince ?? .distantFuture) }
     }
 
-    /// The in-progress exercise fetched from the store, for callers without a list.
-    func inProgressExercise() -> Exercise? {
-        var descriptor = FetchDescriptor<Exercise>(
+    /// The in-progress exercises fetched from the store, the one started first first.
+    func inProgressExercises() -> [Exercise] {
+        fetch(FetchDescriptor<Exercise>(
             predicate: #Predicate<Exercise> { $0.inProgressSince != nil },
             sortBy: [SortDescriptor(\Exercise.inProgressSince, order: .forward)]
-        )
-        descriptor.fetchLimit = 1
-        return fetch(descriptor).first
+        ))
+    }
+
+    /// The oldest in-progress exercise, for callers that only care whether there is one.
+    func inProgressExercise() -> Exercise? {
+        inProgressExercises().first
     }
 
     nonisolated enum StartResult: Equatable {
         case started
-        /// Another exercise is already in progress; nothing changed (PLAN.md 3.3).
-        case refused(current: Exercise)
+        /// `maxInProgress` exercises are already in progress; nothing changed (PLAN.md 3.3).
+        case refused(running: [Exercise])
     }
 
-    /// Starts an exercise. Exactly one exercise may be in progress; starting the one that
+    /// Starts an exercise. Up to `maxInProgress` may be in progress; starting one that
     /// already is, is a no-op `.started`.
     @discardableResult
     func start(_ exercise: Exercise) -> StartResult {
-        if let current = inProgressExercise(), current !== exercise {
-            return .refused(current: current)
+        if exercise.inProgressSince == nil {
+            let running = inProgressExercises()
+            if running.count >= Self.maxInProgress {
+                return .refused(running: running)
+            }
         }
         if exercise.inProgressSince == nil {
             exercise.inProgressSince = .now
@@ -172,8 +184,8 @@ import os
         /// The newest execution is out of the store; its sets are returned oldest first,
         /// ready to be the card's pending list.
         case reopened([PendingSet])
-        /// Another exercise is in progress; nothing changed (PLAN.md 3.3).
-        case refused(current: Exercise)
+        /// `maxInProgress` exercises are in progress; nothing changed (PLAN.md 3.3).
+        case refused(running: [Exercise])
         /// The exercise has no execution to take back.
         case nothingToReopen
     }
@@ -186,13 +198,14 @@ import os
     /// checkmark time itself is not stored), the exercise becomes the in-progress one and its
     /// sets are handed back as `PendingSet`s, each with its `Entry.date` as `loggedAt` and its
     /// note, so the next checkmark rewrites the execution as it was plus whatever is added.
-    /// One `save()`, one backup. The one-in-progress rule holds: with another exercise in
-    /// progress nothing changes. The 15-minute window is the row's business (`canReopen`);
+    /// One `save()`, one backup. The in-progress limit holds: with `maxInProgress` others
+    /// running nothing changes. The 15-minute window is the row's business (`canReopen`);
     /// the store reopens whatever it is asked to.
     func reopenLastExecution(of exercise: Exercise) -> ReopenResult {
         guard let execution = exercise.lastExecution else { return .nothingToReopen }
-        if let current = inProgressExercise(), current !== exercise {
-            return .refused(current: current)
+        let running = inProgressExercises()
+        if exercise.inProgressSince == nil, running.count >= Self.maxInProgress {
+            return .refused(running: running)
         }
 
         let sets = execution.sets.map { entry in
@@ -234,16 +247,16 @@ import os
         case logged
         /// Nothing valid was typed and nothing was in progress: the new exercise started.
         case startedInProgress
-        /// Something else is in progress: the new exercise waits in the queue.
+        /// `maxInProgress` others are in progress: the new exercise waits in the queue.
         case queued
     }
 
     /// New exercise (PLAN.md section 2 "New exercise" and 3.3).
     ///
-    /// A valid first set is logged immediately. Otherwise, when nothing is in progress the
+    /// A valid first set is logged immediately. Otherwise, when fewer than `maxInProgress` are in progress the
     /// new exercise becomes the in-progress one — also when the draft is partially filled,
-    /// because the UI carries the typed values into the in-progress card. When another
-    /// exercise is in progress the new one is simply queued (never performed = top).
+    /// because the UI carries the typed values into the in-progress card. When the limit is reached
+    /// the new one is simply queued (never performed = top).
     func addExercise(
         name: String,
         isUnilateral: Bool,
@@ -266,7 +279,7 @@ import os
             return (exercise, .logged)
         }
 
-        if inProgressExercise() == nil {
+        if inProgressExercises().count < Self.maxInProgress {
             start(exercise)
             return (exercise, .startedInProgress)
         }

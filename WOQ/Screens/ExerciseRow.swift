@@ -135,7 +135,7 @@ private struct RiseGlyph: View {
 }
 
 /// Isosceles triangle with its apex at the top centre.
-private struct UpTriangle: Shape {
+nonisolated private struct UpTriangle: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.midX, y: rect.minY))

@@ -21,26 +21,44 @@ struct InProgressRulesTests {
         #expect(store.inProgressExercise() === exercise)
     }
 
-    @Test("a second exercise is refused while one is in progress")
-    func secondStartIsRefused() throws {
+    @Test("up to three exercises can be in progress together")
+    func threeCanRunTogether() throws {
         let (container, store) = try makeStore()
         let context = container.mainContext
-        let first = Fixture.exercise("Bench press", in: context)
-        let second = Fixture.exercise("Squat", in: context)
-        store.start(first)
+        let names = ["Bench press", "Squat", "Row"]
+        let exercises = names.map { Fixture.exercise($0, in: context) }
 
-        let result = store.start(second)
-        guard case .refused(let current) = result else {
+        for exercise in exercises {
+            #expect(store.start(exercise) == .started)
+        }
+
+        #expect(store.inProgressExercises().count == 3)
+        #expect(exercises.allSatisfy { $0.inProgressSince != nil })
+    }
+
+    @Test("a fourth exercise is refused while three are in progress")
+    func fourthStartIsRefused() throws {
+        let (container, store) = try makeStore()
+        let context = container.mainContext
+        let running = ["Bench press", "Squat", "Row"].map { Fixture.exercise($0, in: context) }
+        let fourth = Fixture.exercise("Curl", in: context)
+        running.forEach { store.start($0) }
+
+        let result = store.start(fourth)
+        guard case .refused(let refusedBy) = result else {
             Issue.record("expected .refused, got \(result)")
             return
         }
-        #expect(current === first)
+        #expect(refusedBy.count == 3)
         // Nothing changed (PLAN.md 3.3).
-        #expect(second.inProgressSince == nil)
-        #expect(store.inProgressExercise() === first)
+        #expect(fourth.inProgressSince == nil)
+        #expect(store.inProgressExercises().count == 3)
+        // One slot frees up when one is put back.
+        store.putBack(running[1])
+        #expect(store.start(fourth) == .started)
     }
 
-    @Test("starting the one already in progress is a no-op .started")
+    @Test("starting one that already runs is a no-op .started, even at the limit")
     func restartingIsANoOp() throws {
         let (container, store) = try makeStore()
         let exercise = Fixture.exercise("Bench press", in: container.mainContext)
@@ -222,8 +240,8 @@ struct InProgressRulesTests {
         #expect(exercise.entries.isEmpty)
     }
 
-    @Test("a new exercise is queued when something else is in progress")
-    func addExerciseQueuesWhenBusy() throws {
+    @Test("a new exercise starts while fewer than three are in progress")
+    func addExerciseStartsWithRoomLeft() throws {
         let (container, store) = try makeStore()
         let running = Fixture.exercise("Squat", in: container.mainContext)
         store.start(running)
@@ -232,10 +250,26 @@ struct InProgressRulesTests {
             name: "Bench press", isUnilateral: false, tags: [], firstSet: nil
         )
 
+        #expect(outcome == .startedInProgress)
+        #expect(exercise.inProgressSince != nil)
+        #expect(store.inProgressExercises().count == 2)
+    }
+
+    @Test("a new exercise is queued when three are in progress")
+    func addExerciseQueuesWhenBusy() throws {
+        let (container, store) = try makeStore()
+        let context = container.mainContext
+        let running = ["Squat", "Row", "Curl"].map { Fixture.exercise($0, in: context) }
+        running.forEach { store.start($0) }
+
+        let (exercise, outcome) = store.addExercise(
+            name: "Bench press", isUnilateral: false, tags: [], firstSet: nil
+        )
+
         #expect(outcome == .queued)
         #expect(exercise.inProgressSince == nil)
         #expect(exercise.lastPerformedAt == nil)
-        #expect(store.inProgressExercise() === running)
+        #expect(store.inProgressExercises().count == 3)
     }
 
     // MARK: - Entry edits
@@ -419,23 +453,23 @@ struct InProgressRulesTests {
         #expect(exercise.inProgressSince != nil)
     }
 
-    @Test("reopening is refused while another exercise is in progress")
+    @Test("reopening is refused while three others are in progress")
     func reopenRefusedWhenBusy() throws {
         let (container, store) = try makeStore()
         let context = container.mainContext
         let finished = Fixture.exercise("Bench press", in: context)
         store.finalize(finished, with: Fixture.set(80, 10), at: Fixture.date(day: 1))
-        let running = Fixture.exercise("Squat", in: context)
-        store.start(running)
+        let running = ["Squat", "Row", "Curl"].map { Fixture.exercise($0, in: context) }
+        running.forEach { store.start($0) }
 
         let result = store.reopenLastExecution(of: finished)
 
-        #expect(result == .refused(current: running))
+        #expect(result == .refused(running: store.inProgressExercises()))
         // Nothing changed (PLAN.md 3.3).
         #expect(finished.entries.count == 1)
         #expect(finished.lastPerformedAt == Fixture.date(day: 1))
         #expect(finished.inProgressSince == nil)
-        #expect(store.inProgressExercise() === running)
+        #expect(store.inProgressExercises().count == 3)
     }
 
     @Test("reopening an exercise without executions does nothing")

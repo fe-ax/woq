@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// The queue (PLAN.md sections 3 and 6): custom header, search, the single
-/// in-progress card on the blue lane and the queue rows on the yellow lane.
+/// The queue (PLAN.md sections 3 and 6): custom header, search, the (up to three)
+/// in-progress cards on the blue lane and the queue rows on the yellow lane.
 ///
 /// No `NavigationStack`, no system bars and no `List` (PLAN.md pitfalls 3 and
 /// 7): rows carry custom backgrounds, a shader and text fields, and any system
@@ -39,18 +39,16 @@ struct MainScreen: View {
     /// keep hiding queue rows.
     @State private var showSearch = false
 
-    /// Everything the in-progress card holds: the fields being typed plus the
-    /// sets already committed with its plus button (PLAN.md "Multi-set
-    /// executions", 2026-09-12). View state only, rebuilt whenever the
-    /// in-progress exercise changes and never persisted (PLAN.md 3.4). The
-    /// fields start as a copy of the previous execution's peak set
-    /// (`prefilledDraft(for:)`), so the numbers Marco is about to repeat are
-    /// already there; the pending list starts empty and is written to the store
-    /// as one execution by the checkmark.
-    @State private var card = CardDraft()
-    /// Draft handed over by the add sheet; applied when the `@Query` catches up
-    /// and the in-progress exercise actually changes.
-    @State private var pendingDraft: CardDraft?
+    /// Everything each in-progress card holds, by exercise id: the fields being
+    /// typed plus the sets already committed with its plus button (PLAN.md
+    /// "Multi-set executions", 2026-09-12). View state only, never persisted
+    /// (PLAN.md 3.4). The fields start as a copy of the previous execution's
+    /// peak set (`prefilledDraft(for:)`), so the numbers Marco is about to
+    /// repeat are already there; the pending list starts empty and is written
+    /// to the store as one execution by the checkmark. Entries are created by
+    /// whoever starts the exercise, and `syncCards()` fills any gap (the
+    /// relaunch case) and drops cards whose exercise is no longer in progress.
+    @State private var cards: [UUID: CardDraft] = [:]
     /// Cards of exercises that were put back (PLAN.md section 2, "Drafts
     /// (changed)", extended 2026-09-12 to the pending sets). Restored when the
     /// same exercise is started again, dropped on finalize. In memory only:
@@ -78,14 +76,16 @@ struct MainScreen: View {
     @State private var successHapticCount = 0
     @State private var warningHapticCount = 0
 
-    @FocusState private var focus: InProgressCard.Field?
+    @FocusState private var focus: InProgressCard.FocusTarget?
 
-    /// Identity of the in-progress row inside the `LazyVStack`, and the scroll
+    /// Identity of an in-progress row inside the `LazyVStack`, and the scroll
     /// target for `ScrollViewProxy`. It must NOT be the exercise's `id`: the
     /// same id in two structurally different children of one lazy stack makes
     /// SwiftUI keep the first view it built, so the started exercise kept
     /// rendering as a queue row.
-    private static let inProgressID = "woq.inProgress"
+    private static func sectionID(for exercise: Exercise) -> String {
+        "woq.inProgress.\(exercise.id.uuidString)"
+    }
 
     var body: some View {
         ZStack {
@@ -142,14 +142,10 @@ struct MainScreen: View {
         .sensoryFeedback(.impact(weight: .light), trigger: addSetHapticCount)
         .sensoryFeedback(.success, trigger: successHapticCount)
         .sensoryFeedback(.warning, trigger: warningHapticCount)
-        // `initial: true` covers the relaunch case: the app comes back with an
-        // exercise still in progress and no `start(_:)` ever runs, so the
+        // `initial: true` covers the relaunch case: the app comes back with
+        // exercises still in progress and no `start(_:)` ever runs, so the
         // prefill has to happen on the first pass as well (PLAN.md 3.15).
-        .onChange(of: inProgress?.id, initial: true) { _, _ in
-            card = pendingDraft ?? CardDraft(fields: prefilledDraft(for: inProgress))
-            pendingDraft = nil
-            focus = nil
-        }
+        .onChange(of: inProgressIDs, initial: true) { _, _ in syncCards() }
         // Paper accessory bar for the number pads, which have no return key
         // (PLAN.md pitfall 5). Only while an in-progress field is focused, so
         // the search field keeps a plain keyboard. With the keyboard up the
@@ -291,8 +287,8 @@ struct MainScreen: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if let inProgress {
-                        inProgressSection(inProgress)
+                    ForEach(inProgress, id: \.id) { exercise in
+                        inProgressSection(exercise, isLast: exercise.id == inProgress.last?.id)
                     }
 
                     ForEach(queued, id: \.id) { exercise in
@@ -308,8 +304,9 @@ struct MainScreen: View {
             .scrollEdgeEffectStyle(.hard, for: .top)
             .safeAreaPadding(.bottom)
             .onChange(of: focus) { _, newValue in
-                guard newValue != nil, inProgress != nil else { return }
-                withAnimation { proxy.scrollTo(Self.inProgressID, anchor: .top) }
+                guard let newValue, let exercise = inProgress.first(where: { $0.id == newValue.exerciseID })
+                else { return }
+                withAnimation { proxy.scrollTo(Self.sectionID(for: exercise), anchor: .top) }
             }
         }
     }
@@ -321,25 +318,26 @@ struct MainScreen: View {
     /// back into the lane at the bottom of the section. The separator then
     /// carries the lane through the QUEUE rule and hands it to the yellow queue
     /// lane.
-    private func inProgressSection(_ exercise: Exercise) -> some View {
-        Group {
+    private func inProgressSection(_ exercise: Exercise, isLast: Bool) -> some View {
+        let isFirst = exercise.id == inProgress.first?.id
+        return Group {
             HStack(alignment: .top, spacing: 0) {
                 LaneColumn(
                     laneColor: Tokens.blue,
                     nodeStyle: .filled(Tokens.blue),
-                    connectsUp: false,
+                    connectsUp: !isFirst,
                     connectsDown: true,
                     nodePlacement: .top(inset: InProgressCard.laneNodeInset)
                 )
 
                 InProgressCard(
                     exercise: exercise,
-                    draft: $card.fields,
-                    pendingSets: card.pending,
+                    draft: fieldsBinding(for: exercise),
+                    pendingSets: cards[exercise.id]?.pending ?? [],
                     focus: $focus,
                     onPutBack: { putBack(exercise) },
                     onAddSet: { addSet(exercise) },
-                    onRemovePendingSet: { removePendingSet($0) },
+                    onRemovePendingSet: { removePendingSet($0, of: exercise) },
                     onFinalize: { set in finalize(exercise, with: set) }
                 )
                 .onLongPressGesture(minimumDuration: 0.4) { detailExercise = exercise }
@@ -353,14 +351,17 @@ struct MainScreen: View {
                 ),
                 branchX: InProgressCard.branchX
             )
-            .id(Self.inProgressID)
+            .id(Self.sectionID(for: exercise))
 
-            // The bridge only continues lanes that exist: no yellow below the
-            // rule when the queue is empty or filtered away.
-            LaneSeparator(
-                bridgeTop: Tokens.blue,
-                bridgeBottom: queued.isEmpty ? nil : Tokens.yellow
-            )
+            // Only the last card hands the lane on: the bridge only continues
+            // lanes that exist, so no yellow below the rule when the queue is
+            // empty or filtered away.
+            if isLast {
+                LaneSeparator(
+                    bridgeTop: Tokens.blue,
+                    bridgeBottom: queued.isEmpty ? nil : Tokens.yellow
+                )
+            }
         }
     }
 
@@ -371,7 +372,7 @@ struct MainScreen: View {
             LaneColumn(
                 laneColor: Tokens.yellow,
                 nodeStyle: .outlined,
-                connectsUp: index > 0 || inProgress != nil,
+                connectsUp: index > 0 || !inProgress.isEmpty,
                 connectsDown: index < queued.count - 1
             )
 
@@ -422,8 +423,14 @@ struct MainScreen: View {
         QueueStore.ordered(exercises)
     }
 
-    private var inProgress: Exercise? {
-        store.inProgressExercise(in: exercises)
+    /// The running exercises, the one started first on top; at most
+    /// `QueueStore.maxInProgress`.
+    private var inProgress: [Exercise] {
+        store.inProgressExercises(in: exercises)
+    }
+
+    private var inProgressIDs: [UUID] {
+        inProgress.map(\.id)
     }
 
     /// The one queue row that offers "Continue" (PLAN.md section 2, "Reopen",
@@ -434,7 +441,7 @@ struct MainScreen: View {
     /// to take back (a fresh add whose first set was left empty).
     private var reopenable: Exercise? {
         guard let last = ordered.last,
-              last.id != inProgress?.id,
+              !last.isInProgress,
               last.lastExecution != nil,
               QueueStore.canReopen(lastPerformedAt: last.lastPerformedAt, now: now)
         else { return nil }
@@ -463,8 +470,7 @@ struct MainScreen: View {
     /// intensity). The text matches the name, the muscle names and the
     /// equipment tag.
     private var queued: [Exercise] {
-        let inProgressID = inProgress?.id
-        var base = ordered.filter { $0.id != inProgressID }
+        var base = ordered.filter { !$0.isInProgress }
 
         if !query.isEmpty {
             base = base.filter {
@@ -497,6 +503,38 @@ struct MainScreen: View {
         }
     }
 
+    // MARK: - Cards
+
+    /// The fields of one card as a binding; a card that does not exist yet
+    /// (the `@Query` can show a started exercise a beat before `cards` has its
+    /// entry) reads as the prefill and is created by the first edit.
+    private func fieldsBinding(for exercise: Exercise) -> Binding<SetDraft> {
+        Binding(
+            get: { cards[exercise.id]?.fields ?? prefilledDraft(for: exercise) },
+            set: { cards[exercise.id, default: CardDraft(fields: prefilledDraft(for: exercise))].fields = $0 }
+        )
+    }
+
+    /// Keeps `cards` in step with the store: a running exercise without a card
+    /// (relaunch, or started elsewhere) gets the prefilled one, a card whose
+    /// exercise is no longer running goes away.
+    private func syncCards() {
+        let running = inProgress
+        let ids = Set(running.map(\.id))
+        for exercise in running where cards[exercise.id] == nil {
+            cards[exercise.id] = CardDraft(fields: prefilledDraft(for: exercise))
+        }
+        for id in cards.keys where !ids.contains(id) {
+            cards.removeValue(forKey: id)
+        }
+        if let focused = focus, !ids.contains(focused.exerciseID) { focus = nil }
+    }
+
+    /// The toast for a refused start: all `QueueStore.maxInProgress` slots are taken.
+    private func limitHint(_ running: [Exercise]) -> String {
+        String(localized: "\(running.count) exercises are running: finish or put one back first")
+    }
+
     // MARK: - Actions
 
     private func start(_ exercise: Exercise, proxy: ScrollViewProxy) {
@@ -505,20 +543,15 @@ struct MainScreen: View {
         case .started:
             startHapticCount += 1
             // A card kept when this exercise was put back comes back with it,
-            // pending sets and all.
-            // It has to travel through `pendingDraft` as well, because the
-            // `onChange(of: inProgress?.id)` below resets `card` afterwards.
-            // Otherwise the previous set is copied in, so "one more set of the
-            // same" is a single tap on the checkmark.
-            let next = keptDrafts.removeValue(forKey: exercise.id)
+            // pending sets and all. Otherwise the previous set is copied in, so
+            // "one more set of the same" is a single tap on the checkmark.
+            cards[exercise.id] = keptDrafts.removeValue(forKey: exercise.id)
                 ?? CardDraft(fields: prefilledDraft(for: exercise))
-            pendingDraft = next
-            card = next
             focus = nil
             // The row only exists after this update, so scroll on the next turn.
-            Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
-        case .refused(let current):
-            hint = String(localized: "Finish or put back \(current.name) first")
+            Task { withAnimation(.snappy) { proxy.scrollTo(Self.sectionID(for: exercise), anchor: .top) } }
+        case .refused(let running):
+            hint = limitHint(running)
             warningHapticCount += 1
         }
     }
@@ -530,7 +563,7 @@ struct MainScreen: View {
     /// with the reps box empty. So the card shows a plain "✓" that would save
     /// the list back exactly as it was, and nothing can be logged twice; the
     /// next set's reps are typed or stepped in. Refused like a start while
-    /// something else is in progress.
+    /// three others are in progress.
     private func reopen(_ exercise: Exercise, proxy: ScrollViewProxy) {
         let result = withAnimation(.snappy) { store.reopenLastExecution(of: exercise) }
         switch result {
@@ -546,13 +579,11 @@ struct MainScreen: View {
                 )
             } ?? prefilledDraft(for: exercise)
             fields.clearReps()
-            let next = CardDraft(fields: fields, pending: sets)
-            pendingDraft = next
-            card = next
+            cards[exercise.id] = CardDraft(fields: fields, pending: sets)
             focus = nil
-            Task { withAnimation(.snappy) { proxy.scrollTo(Self.inProgressID, anchor: .top) } }
-        case .refused(let current):
-            hint = String(localized: "Finish or put back \(current.name) first")
+            Task { withAnimation(.snappy) { proxy.scrollTo(Self.sectionID(for: exercise), anchor: .top) } }
+        case .refused(let running):
+            hint = limitHint(running)
             warningHapticCount += 1
         case .nothingToReopen:
             break
@@ -569,16 +600,19 @@ struct MainScreen: View {
     /// list is visible above the keyboard and the just-added row is not hidden
     /// behind it.
     private func addSet(_ exercise: Exercise) {
-        guard case .success(let set) = card.fields.validate(isUnilateral: exercise.isUnilateral) else { return }
-        withAnimation(.snappy) { card.addPendingSet(set) }
+        guard var card = cards[exercise.id],
+              case .success(let set) = card.fields.validate(isUnilateral: exercise.isUnilateral)
+        else { return }
+        card.addPendingSet(set)
+        withAnimation(.snappy) { cards[exercise.id] = card }
         focus = nil
         addSetHapticCount += 1
     }
 
     /// The × on a pending row. Removal is by id, never by position: the row
     /// numbers are display-only and shift as soon as one disappears.
-    private func removePendingSet(_ id: PendingSet.ID) {
-        withAnimation(.snappy) { card.pending.removeAll { $0.id == id } }
+    private func removePendingSet(_ id: PendingSet.ID, of exercise: Exercise) {
+        withAnimation(.snappy) { cards[exercise.id]?.pending.removeAll { $0.id == id } }
     }
 
     private func putBack(_ exercise: Exercise) {
@@ -589,12 +623,13 @@ struct MainScreen: View {
         // "untouched" means "still equal to the prefill", which would otherwise
         // go stale if that entry were edited in the meantime. Pending sets are
         // always worth keeping: they are work Marco actually did.
-        if !card.pending.isEmpty
+        if let card = cards[exercise.id],
+           !card.pending.isEmpty
             || (!card.fields.isEmpty && card.fields != prefilledDraft(for: exercise)) {
             keptDrafts[exercise.id] = card
         }
         withAnimation(.snappy) { store.putBack(exercise) }
-        card = CardDraft()
+        cards.removeValue(forKey: exercise.id)
     }
 
     /// The checkmark: with reps typed the fields are the last set ("+✓"), with
@@ -606,11 +641,11 @@ struct MainScreen: View {
         let id = exercise.id
         focus = nil
         keptDrafts.removeValue(forKey: id)
-        let sets = card.pending + (set.map { [PendingSet(set: $0)] } ?? [])
+        let sets = (cards[id]?.pending ?? []) + (set.map { [PendingSet(set: $0)] } ?? [])
         guard !sets.isEmpty else { return }
         withAnimation(.snappy) { _ = store.finalize(exercise, with: sets) }
         successHapticCount += 1
-        card = CardDraft()
+        cards.removeValue(forKey: id)
         flashExerciseID = id
         Task {
             try? await Task.sleep(for: .milliseconds(900))
@@ -642,12 +677,9 @@ struct MainScreen: View {
     private func handleAdded(_ result: ExerciseFormSheet.AddResult) {
         switch result.outcome {
         case .startedInProgress:
-            // The `@Query` may update before or after this callback, so set both.
             // The add sheet's optional first set is a single set, so the new
             // card starts with those fields and an empty pending list.
-            let next = CardDraft(fields: result.draft)
-            pendingDraft = next
-            card = next
+            cards[result.exercise.id] = CardDraft(fields: result.draft)
             startHapticCount += 1
         case .logged:
             successHapticCount += 1
@@ -658,21 +690,28 @@ struct MainScreen: View {
 
     // MARK: - Focus chain (PLAN.md pitfall 5)
 
+    private var focusedIsUnilateral: Bool {
+        inProgress.first { $0.id == focus?.exerciseID }?.isUnilateral == true
+    }
+
     private var canFocusNext: Bool {
-        switch focus {
+        switch focus?.field {
         case .weight: true
-        case .repsLeft: inProgress?.isUnilateral == true
+        case .repsLeft: focusedIsUnilateral
         case .repsRight, .none: false
         }
     }
 
     private func focusNext() {
-        switch focus {
+        guard let current = focus else { return }
+        switch current.field {
         case .weight:
-            focus = .repsLeft
+            focus = .init(exerciseID: current.exerciseID, field: .repsLeft)
         case .repsLeft:
-            focus = inProgress?.isUnilateral == true ? .repsRight : nil
-        case .repsRight, .none:
+            focus = focusedIsUnilateral
+                ? .init(exerciseID: current.exerciseID, field: .repsRight)
+                : nil
+        case .repsRight:
             focus = nil
         }
     }
