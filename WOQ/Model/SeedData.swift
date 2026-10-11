@@ -107,8 +107,8 @@ nonisolated enum SeedData {
         }
 
         // A brand-new exercise with no first set starts in progress; the seed leaves the
-        // queue at rest instead (PLAN.md 3.2 keeps at most one in progress either way).
-        if let current = store.inProgressExercise() {
+        // queue at rest instead (PLAN.md 3.2 keeps at most three in progress either way).
+        for current in store.inProgressExercises() {
             store.putBack(current)
         }
     }

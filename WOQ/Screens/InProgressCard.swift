@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// The single in-progress exercise (PLAN.md sections 3.4 to 3.6 and 6).
+/// One in-progress exercise, of at most three (PLAN.md sections 3.4 to 3.6 and 6).
 ///
 /// Water shader background with the card outline drawn on top — the card fill
 /// would hide the water, so the border is an overlay over a `ZStack` instead of
@@ -43,6 +43,13 @@ struct InProgressCard: View {
         case repsRight
     }
 
+    /// A field of one specific card: with up to three cards on screen, `MainScreen`'s single
+    /// `@FocusState` has to say WHICH card's weight or reps box has the keyboard.
+    struct FocusTarget: Hashable {
+        let exerciseID: UUID
+        let field: Field
+    }
+
     /// Height of an outlined input box; the caption label sits above it.
     /// `SetBranchOverlay` needs it to centre the dashed node on the box.
     static let fieldBoxHeight: CGFloat = 44
@@ -74,7 +81,7 @@ struct InProgressCard: View {
     /// Sets already committed with the plus, in the order they were logged.
     /// Owned by `MainScreen` (`CardDraft.pending`); this view only lists them.
     var pendingSets: [PendingSet]
-    var focus: FocusState<Field?>.Binding
+    var focus: FocusState<FocusTarget?>.Binding
     var onPutBack: () -> Void
     /// The fields validate and the plus was tapped: `MainScreen` turns the
     /// current `draft` into a `PendingSet` (the card never builds one itself, so
@@ -340,7 +347,7 @@ struct InProgressCard: View {
             keyboard: .decimalPad,
             onStep: { draft.weightText = SetDraft.steppedWeightText(draft.weightText, by: $0) },
             focus: focus,
-            field: .weight,
+            field: FocusTarget(exerciseID: exercise.id, field: .weight),
             isInvalid: draft.weightProblem() != nil,
             accessibilityLabel: String(localized: "Weight in kilograms")
         )
@@ -354,7 +361,7 @@ struct InProgressCard: View {
             keyboard: .numberPad,
             onStep: { draft.repsText = SetDraft.steppedRepsText(draft.repsText, by: $0) },
             focus: focus,
-            field: .repsLeft,
+            field: FocusTarget(exerciseID: exercise.id, field: .repsLeft),
             accessibilityLabel: exercise.isUnilateral
                 ? String(localized: "Repetitions left side")
                 : String(localized: "Repetitions")
@@ -369,7 +376,7 @@ struct InProgressCard: View {
             keyboard: .numberPad,
             onStep: { draft.repsRightText = SetDraft.steppedRepsText(draft.repsRightText, by: $0) },
             focus: focus,
-            field: .repsRight,
+            field: FocusTarget(exerciseID: exercise.id, field: .repsRight),
             accessibilityLabel: String(localized: "Repetitions right side")
         )
     }
